@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+body {
+  background-color: #09090b; /* Aquele fundo dark premium */
+  color: #fafafa;
+}
