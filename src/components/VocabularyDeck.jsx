@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import {
   BookText, Plus, Trash2, Search, Loader2,
-  Languages, MessageSquareText, X, Sparkles, ChevronDown, Users
+  Languages, MessageSquareText, X, Sparkles, ChevronDown, Users, Check, Edit2
 } from 'lucide-react';
 
 export default function VocabularyDeck({ profile, session, selectedStudent, isDarkMode }) {
@@ -12,6 +12,12 @@ export default function VocabularyDeck({ profile, session, selectedStudent, isDa
   const [showAddForm, setShowAddForm] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Estados de Edição (Adicionados)
+  const [editingId, setEditingId] = useState(null);
+  const [editTerm, setEditTerm] = useState('');
+  const [editTranslation, setEditTranslation] = useState('');
+  const [editExample, setEditExample] = useState('');
 
   // Form state
   const [term, setTerm] = useState('');
@@ -126,6 +132,18 @@ export default function VocabularyDeck({ profile, session, selectedStudent, isDa
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Função para salvar a edição (Adicionada)
+  const handleSaveEdit = async (id) => {
+    try {
+      const { error } = await supabase.from('vocabulary_deck')
+        .update({ term: editTerm, translation: editTranslation, example_sentence: editExample || null })
+        .eq('id', id);
+      if (error) throw error;
+      setEditingId(null);
+      fetchCards();
+    } catch (err) { alert('Error updating card.'); }
   };
 
   // Delete card
@@ -396,47 +414,38 @@ export default function VocabularyDeck({ profile, session, selectedStudent, isDa
                     {/* Accent bar */}
                     <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#5A77DF] to-[#8B5CF6] opacity-60 group-hover:opacity-100 transition-opacity" />
 
-                    {/* Delete button (student only) */}
-                    {isStudent && (
-                      <button
-                        onClick={() => handleDeleteCard(card.id)}
-                        disabled={deleting === card.id}
-                        className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all text-[var(--text-lighter)] hover:text-red-500 bg-[var(--bg-input)] p-1.5 rounded-lg border border-[var(--border-color)]"
-                      >
-                        {deleting === card.id ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <Trash2 size={14} />
-                        )}
-                      </button>
-                    )}
-
-                    {/* Term */}
-                    <h3 className="text-lg font-bold text-[var(--text-main)] tracking-tight mb-1 pr-8">
-                      {card.term}
-                    </h3>
-
-                    {/* Translation */}
-                    <p className="text-[#5A77DF] font-semibold text-sm mb-3">
-                      {card.translation}
-                    </p>
-
-                    {/* Example sentence */}
-                    {card.example_sentence && (
-                      <div className="bg-[var(--bg-input)] rounded-xl px-4 py-3 border border-[var(--border-color)]">
-                        <p className="text-[var(--text-muted)] text-xs italic leading-relaxed">
-                          "{card.example_sentence}"
-                        </p>
+                    {editingId === card.id ? (
+                      <div className="space-y-3 animate-in fade-in">
+                        <input value={editTerm} onChange={e => setEditTerm(e.target.value)} className="w-full font-bold bg-[var(--bg-input)] p-2 rounded-lg border border-[var(--border-color)]" placeholder="Term" />
+                        <input value={editTranslation} onChange={e => setEditTranslation(e.target.value)} className="w-full text-[#5A77DF] font-semibold bg-[var(--bg-input)] p-2 rounded-lg border border-[var(--border-color)]" placeholder="Translation" />
+                        <textarea value={editExample} onChange={e => setEditExample(e.target.value)} className="w-full text-xs bg-[var(--bg-input)] p-2 rounded-lg border border-[var(--border-color)]" rows={2} placeholder="Example sentence" />
+                        <div className="flex gap-2">
+                          <button onClick={() => handleSaveEdit(card.id)} className="flex-1 bg-[#5A77DF] text-white py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1">
+                            <Check size={14} /> Save
+                          </button>
+                          <button onClick={() => setEditingId(null)} className="flex-1 bg-[var(--bg-input)] py-2 rounded-lg font-bold text-xs text-[var(--text-muted)]">Cancel</button>
+                        </div>
                       </div>
+                    ) : (
+                      <>
+                        <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                          <button onClick={() => { setEditingId(card.id); setEditTerm(card.term); setEditTranslation(card.translation); setEditExample(card.example_sentence || ''); }} className="text-[var(--text-lighter)] hover:text-[#5A77DF] bg-[var(--bg-input)] p-1.5 rounded-lg border border-[var(--border-color)]"><Edit2 size={14}/></button>
+                          <button onClick={() => handleDeleteCard(card.id)} className="text-[var(--text-lighter)] hover:text-red-500 bg-[var(--bg-input)] p-1.5 rounded-lg border border-[var(--border-color)]">
+                             {deleting === card.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                          </button>
+                        </div>
+                        <h3 className="text-lg font-bold text-[var(--text-main)] tracking-tight mb-1 pr-16">{card.term}</h3>
+                        <p className="text-[#5A77DF] font-semibold text-sm mb-3">{card.translation}</p>
+                        {card.example_sentence && (
+                          <div className="bg-[var(--bg-input)] rounded-xl px-4 py-3 border border-[var(--border-color)]">
+                            <p className="text-[var(--text-muted)] text-xs italic leading-relaxed">"{card.example_sentence}"</p>
+                          </div>
+                        )}
+                        <p className="text-[var(--text-lighter)] text-[10px] uppercase tracking-widest font-bold mt-3">
+                          {new Date(card.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </p>
+                      </>
                     )}
-
-                    {/* Date */}
-                    <p className="text-[var(--text-lighter)] text-[10px] uppercase tracking-widest font-bold mt-3">
-                      {new Date(card.created_at).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </p>
                   </div>
                 ))}
               </div>

@@ -589,7 +589,8 @@ function App() {
         .theme-light { --bg-app: #ECEEF0; --bg-sidebar: #323954; --bg-card: #ffffff; --bg-chat: #F8FAFC; --bg-input: #f9fafb; --border-color: #f3f4f6; --text-main: #08112F; --text-muted: #6b7280; --text-lighter: #9ca3af; --icon-bg: #F3F6FF; --icon-color: #5A77DF; --msg-other: #ffffff; --modal-overlay: rgba(8, 17, 47, 0.4); }
         .theme-dark { --bg-app: #202124; --bg-sidebar: #171717; --bg-card: #292A2D; --bg-chat: #202124; --bg-input: #303134; --border-color: #3C4043; --text-main: #E8EAED; --text-muted: #9AA0A6; --text-lighter: #80868B; --icon-bg: rgba(90, 119, 223, 0.1); --icon-color: #8AB4F8; --msg-other: #303134; --modal-overlay: rgba(0, 0, 0, 0.75); }
         .editor-clean .ql-container { border: none !important; font-family: 'Inter', sans-serif; }
-        .editor-clean .ql-toolbar { background: var(--bg-chat); border: none !important; border-bottom: 1px solid var(--border-color) !important; padding: 10px md:16px !important; border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem; overflow-x: auto; white-space: nowrap; }
+        .editor-clean .ql-toolbar { background: var(--bg-chat); border: none !important; border-bottom: 1px solid var(--border-color) !important; padding: 10px md:16px !important; border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem; position: relative; z-index: 50; }
+        .editor-clean .ql-picker-options { z-index: 100 !important; }
         .editor-clean .ql-editor { min-height: 250px; color: var(--text-main); padding: 20px; line-height: 1.7; font-size: 1rem; }
         @media (min-width: 768px) { .editor-clean .ql-editor { padding: 32px; font-size: 1.1rem; } }
         .editor-clean .ql-editor.ql-blank::before { color: var(--text-lighter); font-style: normal; left: 20px; }
@@ -608,6 +609,7 @@ function App() {
         .custom-render ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 1.5rem; color: var(--text-main); }
         .custom-render span[style*="background-color: rgb(222, 255, 154)"] { color: #08112F !important; font-weight: bold; padding: 0 4px; border-radius: 4px; }
         .custom-render span[style*="background-color: rgb(253, 224, 71)"] { color: #08112F !important; font-weight: bold; padding: 0 4px; border-radius: 4px; }
+        
       `}</style>
       <AlertModal />
     </div>
