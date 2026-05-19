@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import CollaborativeEditor from './components/CollaborativeEditor';
 import DashboardStats from './components/DashboardStats';
+import AlertModal from './components/AlertModal';
 
 function App() {
   const [session, setSession] = useState(null)
@@ -608,6 +609,7 @@ function App() {
         .custom-render span[style*="background-color: rgb(222, 255, 154)"] { color: #08112F !important; font-weight: bold; padding: 0 4px; border-radius: 4px; }
         .custom-render span[style*="background-color: rgb(253, 224, 71)"] { color: #08112F !important; font-weight: bold; padding: 0 4px; border-radius: 4px; }
       `}</style>
+      <AlertModal />
     </div>
   )
 }
