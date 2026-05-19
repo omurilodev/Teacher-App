@@ -18,23 +18,32 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
   const { lessons: allLessons } = useLessonsRealtime({});
   const { lessons, loading } = useLessonsRealtime({ referenceMonth: curMonth });
 
-  const createStudent = async () => {
+ const createStudent = async () => {
     if (!newStudent.name || !newStudent.email || !newStudent.password) return alert("Preencha todos os campos!");
     setLoadingAdd(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: newStudent.email,
-        password: newStudent.password,
-        options: { data: { full_name: newStudent.name } }
+      // Chamamos a Edge Function que criamos no passo anterior
+      const { data, error } = await supabase.functions.invoke('create-student', {
+        body: { 
+          email: newStudent.email, 
+          password: newStudent.password, 
+          name: newStudent.name 
+        }
       });
+
       if (error) throw error;
-      await supabase.from('profiles').update({ role: 'student', full_name: newStudent.name }).eq('id', data.user.id);
       
-      alert("Aluno criado com sucesso!");
+      alert("Aluno cadastrado com sucesso!");
       setIsAddModalOpen(false);
       setNewStudent({ email: '', password: '', name: '' });
-      fetchStudents(); // Chama a função que veio do App.jsx
-    } catch (e) { alert("Erro: " + e.message); } finally { setLoadingAdd(false); }
+      
+      // Atualiza a lista de alunos sem recarregar a página
+      fetchStudents(); 
+    } catch (e) { 
+      alert("Erro ao cadastrar: " + e.message); 
+    } finally { 
+      setLoadingAdd(false); 
+    }
   };
 
   const studentSummaries = useMemo(() => {
