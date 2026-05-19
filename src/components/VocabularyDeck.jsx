@@ -428,7 +428,7 @@ export default function VocabularyDeck({ profile, session, selectedStudent, isDa
                       </div>
                     ) : (
                       <>
-                        <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                        <div className="absolute top-4 right-4 flex gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all">
                           <button onClick={() => { setEditingId(card.id); setEditTerm(card.term); setEditTranslation(card.translation); setEditExample(card.example_sentence || ''); }} className="text-[var(--text-lighter)] hover:text-[#5A77DF] bg-[var(--bg-input)] p-1.5 rounded-lg border border-[var(--border-color)]"><Edit2 size={14}/></button>
                           <button onClick={() => handleDeleteCard(card.id)} className="text-[var(--text-lighter)] hover:text-red-500 bg-[var(--bg-input)] p-1.5 rounded-lg border border-[var(--border-color)]">
                              {deleting === card.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
