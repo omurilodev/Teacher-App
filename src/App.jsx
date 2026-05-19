@@ -11,6 +11,8 @@ import {
   PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
   MessageSquare, Sun, Moon, Menu, ChevronRight, BookText, Users, Clock, CheckCircle2
 } from 'lucide-react'
+import CollaborativeEditor from './components/CollaborativeEditor';
+
 
 function App() {
   const [session, setSession] = useState(null)
@@ -26,6 +28,8 @@ function App() {
   const [isLessonListOpen, setIsLessonListOpen] = useState(true)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(true) 
+  const [isCheckingIn, setIsCheckingIn] = useState(false) 
   const [currentView, setCurrentView] = useState('dashboard')
 
   const [loading, setLoading] = useState(true)
@@ -59,7 +63,7 @@ function App() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, isMobileChatOpen]);
+  }, [messages, isMobileChatOpen, isChatOpen]);
 
   const fetchUnreadStatus = useCallback(async (userProfile) => {
     if (!userProfile) return;
@@ -84,7 +88,6 @@ function App() {
     } catch (e) { console.log(e); }
   }, []);
 
-  // FUNÇÃO PARA MARCAR COMO LIDO (Agora isolada para ser chamada em vários lugares)
   const markMessagesAsRead = useCallback(async (lessonId) => {
     if (!profile || !lessonId) return;
     await supabase.from('messages')
@@ -94,12 +97,11 @@ function App() {
     fetchUnreadStatus(profile);
   }, [profile, fetchUnreadStatus]);
 
-  // Dispara quando a gaveta de chat mobile abre
   useEffect(() => {
-    if (isMobileChatOpen && selectedLesson) {
+    if ((isMobileChatOpen || isChatOpen) && selectedLesson) {
       markMessagesAsRead(selectedLesson.id);
     }
-  }, [isMobileChatOpen, selectedLesson, markMessagesAsRead]);
+  }, [isMobileChatOpen, isChatOpen, selectedLesson, markMessagesAsRead]);
 
   const fetchStudents = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').eq('role', 'student'); 
@@ -111,21 +113,37 @@ function App() {
     setLessons(data || []);
   }, []);
 
-  const fetchProfile = useCallback(async (uid) => {
+  const fetchProfile = useCallback(async (uid, isInitialLogin = false) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', uid).single()
     setProfile(data); 
-    if (data?.role === 'teacher') { fetchStudents(); setCurrentView('dashboard'); }
-    else if (data?.role === 'student') { fetchMyLessons(uid); setCurrentView('journal'); }
+    
+    if (data?.role === 'teacher') fetchStudents();
+    else if (data?.role === 'student') fetchMyLessons(uid);
+    
+    if (isInitialLogin) {
+      setCurrentView(data?.role === 'teacher' ? 'dashboard' : 'journal');
+    }
+    
     await fetchUnreadStatus(data); 
     setLoading(false);
   }, [fetchStudents, fetchMyLessons, fetchUnreadStatus]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session); if (session) fetchProfile(session.user.id); else setLoading(false);
+      setSession(session); 
+      if (session) fetchProfile(session.user.id, true); 
+      else setLoading(false);
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session); if (session) fetchProfile(session.user.id); else { setProfile(null); setLoading(false); }
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session); 
+      if (session) {
+        const isInitial = event === 'SIGNED_IN' || event === 'INITIAL_SESSION';
+        fetchProfile(session.user.id, isInitial); 
+      } else { 
+        setProfile(null); 
+        setLoading(false); 
+      }
     })
     return () => subscription.unsubscribe()
   }, [fetchProfile])
@@ -144,13 +162,12 @@ function App() {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `lesson_id=eq.${selectedLesson.id}` }, 
       (payload) => {
         setMessages((prev) => prev.find(m => m.id === payload.new.id) ? prev : [...prev, payload.new]);
-        // Se a conversa já estiver aberta, marca como lido imediatamente
-        if (isMobileChatOpen || (window.innerWidth >= 1024 && selectedLesson)) {
+        if (isMobileChatOpen || (isChatOpen && window.innerWidth >= 1024 && selectedLesson)) {
            markMessagesAsRead(selectedLesson.id);
         }
       }).subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [selectedLesson, isMobileChatOpen, markMessagesAsRead])
+  }, [selectedLesson, isMobileChatOpen, isChatOpen, markMessagesAsRead])
 
   async function selectLesson(lesson, mode = 'view') {
     if (!lesson || !lesson.id) return; 
@@ -169,7 +186,6 @@ function App() {
     const { data } = await supabase.from('messages').select('*').eq('lesson_id', lesson.id).order('created_at', { ascending: true });
     setMessages(data || []);
 
-    // Marca como lido ao selecionar
     markMessagesAsRead(lesson.id);
   }
 
@@ -223,7 +239,7 @@ function App() {
     if (!selectedLesson) return;
     try {
       const now = new Date();
-      const end_time = now.toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
+      const end_time = now.toTimeString().split(' ')[0].substring(0, 5);
       
       let duration_minutes = selectedLesson.duration_minutes || 0;
       const startTime = selectedLesson.start_time;
@@ -252,6 +268,33 @@ function App() {
     } catch (err) {
       console.error(err);
       alert("Erro ao encerrar a aula.");
+    }
+  }
+
+  async function handleStudentCheckin() {
+    if (!selectedLesson) return;
+    setIsCheckingIn(true);
+    try {
+      const { data, error } = await supabase.from('lessons')
+        .update({ student_checkin: true })
+        .eq('id', selectedLesson.id).select();
+        
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        alert("Bloqueio de Segurança: O banco de dados não permitiu a ação (RLS). Execute o código SQL no Supabase para liberar.");
+        return;
+      }
+      
+      if (data && data[0]) {
+        setSelectedLesson(data[0]);
+        setLessons(lessons.map(l => l.id === selectedLesson.id ? data[0] : l));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao confirmar presença.");
+    } finally {
+      setIsCheckingIn(false);
     }
   }
 
@@ -413,17 +456,19 @@ function App() {
                         <div className="flex flex-1 overflow-hidden relative">
                           <div className="flex-1 p-6 md:p-12 overflow-y-auto relative z-10 pt-8 lg:pt-12"><div className="max-w-4xl mx-auto pb-10">
                               
+                              {/* BANNER DO PROFESSOR */}
                               {profile?.role === 'teacher' && !selectedLesson.end_time && (
-                                <div className="mb-6 flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 shadow-sm animate-in fade-in">
-                                  <div>
+                                <div className="mb-6 flex flex-wrap items-center justify-between gap-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 sm:p-5 shadow-sm animate-in fade-in">
+                                  <div className="flex-1 min-w-[200px]">
                                     <p className="text-emerald-500 font-bold text-sm tracking-tight flex items-center gap-2"><CheckCircle2 size={16} /> Aula em andamento</p>
-                                    <p className="text-emerald-500/70 text-xs mt-0.5 ml-6">Clique em finalizar para registrar o horário de saída no CRM.</p>
+                                    <p className="text-emerald-500/70 text-xs mt-1">Clique em finalizar para registrar o horário de saída no CRM.</p>
                                   </div>
-                                  <button onClick={handleFinishLesson} className="bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold shadow-sm hover:bg-emerald-600 transition-all active:scale-95 text-sm whitespace-nowrap">
+                                  <button onClick={handleFinishLesson} className="shrink-0 w-full xl:w-auto bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold shadow-sm hover:bg-emerald-600 transition-all active:scale-95 text-sm whitespace-nowrap text-center">
                                     Encerrar Aula
                                   </button>
                                 </div>
                               )}
+
                               {profile?.role === 'teacher' && selectedLesson.end_time && (
                                 <div className="mb-6 inline-flex items-center gap-2 bg-[#5A77DF]/10 border border-[#5A77DF]/20 px-3 py-1.5 rounded-lg animate-in fade-in">
                                   <Clock size={14} className="text-[#5A77DF]"/>
@@ -431,21 +476,93 @@ function App() {
                                 </div>
                               )}
 
-                              <h2 className="text-3xl md:text-5xl font-bold text-[var(--text-main)] mb-8 md:mb-10 tracking-tight leading-tight">{selectedLesson.title}</h2><div className="text-[var(--text-main)] text-base md:text-lg leading-relaxed custom-render" dangerouslySetInnerHTML={{ __html: selectedLesson?.content || '' }} /></div></div>
+                              {/* BANNER DO ALUNO */}
+                              {profile?.role === 'student' && !selectedLesson.student_checkin && (
+                                <div className="mb-6 flex flex-wrap items-center justify-between gap-4 bg-[#5A77DF]/10 border border-[#5A77DF]/20 rounded-2xl p-4 sm:p-5 shadow-sm animate-in fade-in">
+                                  <div className="flex-1 min-w-[200px]">
+                                    <p className="text-[#5A77DF] font-bold text-sm tracking-tight flex items-center gap-2"><CheckCircle2 size={16} /> Confirme sua presença</p>
+                                    <p className="text-[#5A77DF]/70 text-xs mt-1">Registre sua entrada para atualizar o sistema do professor.</p>
+                                  </div>
+                                  <button 
+                                    onClick={handleStudentCheckin} 
+                                    disabled={isCheckingIn}
+                                    className="shrink-0 w-full xl:w-auto flex items-center justify-center gap-2 bg-[#5A77DF] text-white px-5 py-2.5 rounded-xl font-bold shadow-sm hover:bg-[#4a63be] transition-all active:scale-95 disabled:opacity-50 text-sm whitespace-nowrap text-center"
+                                  >
+                                    {isCheckingIn ? <Loader2 size={16} className="animate-spin" /> : null}
+                                    {isCheckingIn ? 'Confirmando...' : 'Confirmar Presença'}
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* FEEDBACK DE PRESENÇA CONFIRMADA */}
+                              {profile?.role === 'student' && selectedLesson.student_checkin && (
+                                <div className="mb-6 inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg animate-in fade-in">
+                                  <CheckCircle2 size={14} className="text-emerald-500"/>
+                                  <span className="text-emerald-500 font-bold text-xs">Presença confirmada. Boa aula!</span>
+                                </div>
+                              )}
+
+                              <h2 className="text-3xl md:text-5xl font-bold text-[var(--text-main)] mb-8 md:mb-10 tracking-tight leading-tight">{selectedLesson.title}</h2>
+                              
+                              <div className="w-full min-h-[500px] h-[60vh] flex flex-col mb-8">
+                                <CollaborativeEditor
+                                  lessonId={selectedLesson.id}
+                                  initialContent={selectedLesson?.content || ''}
+                                  setContent={(html) => {
+                                    setSelectedLesson(prev => ({ ...prev, content: html }));
+                                    setLessons(prev => prev.map(l => l.id === selectedLesson.id ? { ...l, content: html } : l));
+                                  }}
+                                  modules={modules}
+                                  profile={profile}
+                                />
+                              </div>
+                              
+                            </div>
+                          </div>
                           {isMobileChatOpen && <div onClick={() => setIsMobileChatOpen(false)} className="lg:hidden absolute inset-0 bg-[var(--modal-overlay)] backdrop-blur-sm z-30 animate-in fade-in" />}
                           
-                          <div className={`absolute lg:relative z-40 h-full right-0 ${isMobileChatOpen ? 'translate-x-0 w-full sm:w-[380px]' : 'translate-x-full lg:translate-x-0 w-[380px]'} transition-transform duration-300 ease-in-out lg:border-l border-[var(--border-color)] flex flex-col bg-[var(--bg-chat)] shrink-0 shadow-2xl lg:shadow-none`}>
-                            <div className="p-6 border-b border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-card)] lg:bg-transparent shrink-0"><div className="flex items-center gap-3"><div className="bg-[var(--bg-card)] p-2 rounded-xl shadow-sm border border-[var(--border-color)] text-[#5A77DF]"><MessageSquare size={18}/></div><h3 className="font-bold text-[var(--text-main)] text-sm tracking-tight">Class Discussion</h3></div>
-                            <button onClick={() => setIsMobileChatOpen(false)} className="lg:hidden text-[var(--text-lighter)] hover:text-red-500 bg-[var(--bg-input)] p-2 rounded-xl"><X size={18}/></button></div>
-                            <div className="flex-1 overflow-y-auto p-5 space-y-5 relative">{messages?.length === 0 && <div className="text-center text-[var(--text-lighter)] text-sm mt-10 italic px-4">No messages yet. Ask a question!</div>}
-                            {messages?.map(m => (
-                              <div key={m.id} className={`flex flex-col ${m.sender_id === session?.user.id ? 'items-end' : 'items-start'}`}><div className={`max-w-[88%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${m.sender_id === session?.user.id ? 'bg-[#5A77DF] text-white rounded-tr-sm font-semibold' : 'bg-[var(--msg-other)] border border-[var(--border-color)] text-[var(--text-main)] rounded-tl-sm'}`}>{m.content}</div></div>
-                            ))}
-                            <div ref={messagesEndRef} className="h-1" /></div>
-                            <form onSubmit={sendMessage} className="p-4 bg-[var(--bg-card)] border-t border-[var(--border-color)] pb-8 lg:pb-4"><div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-full p-1 pl-4 focus-within:border-[#5A77DF] focus-within:bg-[var(--bg-card)] transition-all shadow-inner">
-                            <input value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="Type a message..." className="flex-1 bg-transparent text-base md:text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-lighter)]" />
-                            <button type="submit" disabled={!newMessage.trim()} className="w-10 h-10 bg-[#5A77DF] text-white rounded-full flex items-center justify-center hover:scale-105 transition-all disabled:opacity-50 flex-shrink-0"><Send size={16}/></button></div></form>
+                          {/* CHAT RETRÁTIL */}
+                          <div className={`absolute lg:relative z-40 h-full right-0 ${isMobileChatOpen ? 'translate-x-0 w-full sm:w-[380px]' : 'translate-x-full lg:translate-x-0'} ${isChatOpen ? 'lg:w-[380px]' : 'lg:w-16'} transition-all duration-300 ease-in-out lg:border-l border-[var(--border-color)] flex flex-col bg-[var(--bg-chat)] shrink-0 shadow-2xl lg:shadow-none`}>
+                            
+                            {!isChatOpen && window.innerWidth >= 1024 ? (
+                              <div className="flex-1 flex flex-col items-center pt-8">
+                                <button onClick={() => setIsChatOpen(true)} className="relative text-[var(--text-lighter)] hover:text-[#5A77DF] transition-all mb-8 bg-[var(--bg-input)] p-2 rounded-xl shadow-sm border border-[var(--border-color)]">
+                                  <MessageSquare size={20} />
+                                  {unreadByLesson[selectedLesson.id] && <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-[var(--bg-chat)]"></div>}
+                                </button>
+                                <div className="[writing-mode:vertical-rl] text-[10px] font-bold tracking-[0.2em] text-[var(--text-lighter)] uppercase">Chat</div>
+                              </div>
+                            ) : (
+                              <div className={`flex flex-col flex-1 h-full ${!isChatOpen && window.innerWidth >= 1024 ? 'opacity-0 hidden' : 'opacity-100'} transition-opacity duration-300`}>
+                                <div className="p-6 border-b border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-card)] lg:bg-transparent shrink-0">
+                                  <div className="flex items-center gap-3">
+                                    <div className="bg-[var(--bg-card)] p-2 rounded-xl shadow-sm border border-[var(--border-color)] text-[#5A77DF]"><MessageSquare size={18}/></div>
+                                    <h3 className="font-bold text-[var(--text-main)] text-sm tracking-tight">Class Discussion</h3>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button onClick={() => setIsChatOpen(false)} className="hidden lg:flex text-[var(--text-lighter)] hover:text-[var(--text-main)] transition-colors bg-[var(--bg-input)] p-1.5 rounded-lg border border-[var(--border-color)] shadow-sm"><PanelRightClose size={18}/></button>
+                                    <button onClick={() => setIsMobileChatOpen(false)} className="lg:hidden text-[var(--text-lighter)] hover:text-red-500 bg-[var(--bg-input)] p-2 rounded-xl"><X size={18}/></button>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex-1 overflow-y-auto p-5 space-y-5 relative">
+                                  {messages?.length === 0 && <div className="text-center text-[var(--text-lighter)] text-sm mt-10 italic px-4">No messages yet. Ask a question!</div>}
+                                  {messages?.map(m => (
+                                    <div key={m.id} className={`flex flex-col ${m.sender_id === session?.user.id ? 'items-end' : 'items-start'}`}><div className={`max-w-[88%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${m.sender_id === session?.user.id ? 'bg-[#5A77DF] text-white rounded-tr-sm font-semibold' : 'bg-[var(--msg-other)] border border-[var(--border-color)] text-[var(--text-main)] rounded-tl-sm'}`}>{m.content}</div></div>
+                                  ))}
+                                  <div ref={messagesEndRef} className="h-1" />
+                                </div>
+
+                                <form onSubmit={sendMessage} className="p-4 bg-[var(--bg-card)] border-t border-[var(--border-color)] pb-8 lg:pb-4">
+                                  <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-full p-1 pl-4 focus-within:border-[#5A77DF] focus-within:bg-[var(--bg-card)] transition-all shadow-inner">
+                                    <input value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="Type a message..." className="flex-1 bg-transparent text-base md:text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-lighter)]" />
+                                    <button type="submit" disabled={!newMessage.trim()} className="w-10 h-10 bg-[#5A77DF] text-white rounded-full flex items-center justify-center hover:scale-105 transition-all disabled:opacity-50 flex-shrink-0"><Send size={16}/></button>
+                                  </div>
+                                </form>
+                              </div>
+                            )}
                           </div>
+
                         </div>
                       ) : (
                         <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-lighter)] bg-[var(--bg-app)]/30 p-6 text-center"><div className="w-20 h-20 md:w-24 md:h-24 bg-[var(--bg-card)] rounded-3xl shadow-sm border border-[var(--border-color)] flex items-center justify-center mb-6"><BookOpen size={40} className="opacity-40" /></div><p className="font-bold text-sm tracking-tight mb-6">Welcome to Elite Journal. <br/> Select a lesson to start studying.</p><button onClick={() => setIsLessonListOpen(true)} className="lg:hidden bg-[#5A77DF] text-white px-6 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all">Menu Aulas</button></div>
