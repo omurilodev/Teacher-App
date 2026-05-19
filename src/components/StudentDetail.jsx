@@ -132,7 +132,7 @@ export default function StudentDetail({ student, profile, onBack }) {
     if (!lastPayDate) {
       return { consumedClasses: 0, hasPayment: false, remaining: 0 };
     }
-    const validAfterPay = allSortedByDate.filter(l => (!l.is_absent || l.is_late_cancellation) && l.class_date && l.class_date >= lastPayDate);
+    const validAfterPay = allSortedByDate.filter(l => (!l.is_absent || l.is_late_cancellation) && !l.is_late_cancellation && l.class_date && l.class_date >= lastPayDate);
     const consumed = validAfterPay.length;
     return { consumedClasses: consumed, hasPayment: true, remaining: Math.max(0, 4 - consumed) };
   }, [allSortedByDate, lastPayDate]);
@@ -141,7 +141,7 @@ export default function StudentDetail({ student, profile, onBack }) {
   const paidLessonIds = useMemo(() => {
     const ids = new Set();
     if (!lastPayDate) return ids;
-    const validAfterPay = allSortedByDate.filter(l => (!l.is_absent || l.is_late_cancellation) && l.class_date && l.class_date >= lastPayDate);
+    const validAfterPay = allSortedByDate.filter(l => (!l.is_absent || l.is_late_cancellation) && !l.is_late_cancellation && l.class_date && l.class_date >= lastPayDate);
     for (let i = 0; i < Math.min(4, validAfterPay.length); i++) {
       ids.add(validAfterPay[i].id);
     }
@@ -448,15 +448,30 @@ export default function StudentDetail({ student, profile, onBack }) {
                       </thead>
                       <tbody>
                         {sorted.map((l, i) => {
+                          const isMakeup = l.is_makeup || l.title?.toLowerCase().includes('reposição');
                           return (
-                            <tr key={l.id} className={`border-b border-[var(--border-color)] last:border-b-0 hover:bg-[var(--bg-input)] transition-colors ${l.is_absent ? 'opacity-60' : ''}`}>
+                            <tr key={l.id} className={`border-b last:border-b-0 hover:bg-[var(--bg-input)] transition-colors ${l.is_late_cancellation ? 'bg-red-500/10 border-red-500/30' : isMakeup ? 'bg-yellow-500/10 border-yellow-500/30' : !l.is_absent ? 'bg-emerald-500/10 border-emerald-500/30' : 'border-[var(--border-color)]'} ${l.is_absent && !l.is_late_cancellation ? 'opacity-60' : ''}`}>
                               <td className="px-5 py-3.5 text-[var(--text-lighter)] font-bold">{i + 1}</td>
                               <td className="px-3 py-3.5 text-[var(--text-main)] whitespace-nowrap">{l.class_date ? new Date(l.class_date + 'T00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                              <td className="px-3 py-3.5 font-semibold text-[var(--text-main)] whitespace-nowrap">{l.title || formatDate(l.start_time)}</td>
+                              <td className="px-3 py-3.5 font-semibold text-[var(--text-main)] whitespace-nowrap">
+                                <div className="flex flex-col gap-1">
+                                  <span>{l.title || formatDate(l.start_time)}</span>
+                                  {(isMakeup || l.is_late_cancellation) && (
+                                    <div className="flex items-center gap-1">
+                                      {isMakeup && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 uppercase tracking-wider">Reposição</span>}
+                                      {l.is_late_cancellation && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20 uppercase tracking-wider">Aviso Tardio</span>}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
                               <td className="px-3 py-3.5 text-[var(--text-muted)] whitespace-nowrap">{formatTime(l.start_time)} – {formatTime(l.end_time)}</td>
                               <td className="px-3 py-3.5 text-center"><span className="font-bold text-[var(--text-main)]">{l.duration_minutes || 0}</span><span className="text-[var(--text-lighter)] text-xs ml-0.5">min</span></td>
                               <td className="px-3 py-3.5 text-center">
-                                {(!lastPayDate || (l.class_date && l.class_date >= lastPayDate && !paidLessonIds.has(l.id))) && !l.is_absent ? (
+                                {l.is_late_cancellation ? (
+                                  <button onClick={() => update(l.id, { extra_fee_paid: !l.extra_fee_paid })} disabled={updating === `extra_fee_paid_${l.id}`} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${l.extra_fee_paid ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'}`}>
+                                    {updating === `extra_fee_paid_${l.id}` ? <Loader2 size={12} className="animate-spin" /> : (l.extra_fee_paid ? <><CheckCircle2 size={12} /> Taxa Paga</> : 'Taxa Pendente')}
+                                  </button>
+                                ) : (!lastPayDate || (l.class_date && l.class_date >= lastPayDate && !paidLessonIds.has(l.id))) && !l.is_absent ? (
                                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase tracking-wider">
                                     Pendente
                                   </span>

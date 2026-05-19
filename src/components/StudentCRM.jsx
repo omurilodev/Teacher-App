@@ -64,7 +64,7 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
         m.remaining = 0;
       } else {
         const sAll = (allLessons || []).filter(l => l.student_id === m.student.id);
-        const consumed = sAll.filter(l => !l.is_absent && l.class_date && l.class_date >= lpd).length;
+        const consumed = sAll.filter(l => !l.is_absent && !l.late_notice && l.class_date && l.class_date >= lpd).length;
         m.remaining = Math.max(0, 4 - consumed);
       }
     });

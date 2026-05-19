@@ -44,6 +44,11 @@ function App() {
   const [editStartTime, setEditStartTime] = useState('')
   const [editEndTime, setEditEndTime] = useState('')
 
+  // NOVOS ESTADOS ADICIONADOS
+  const [editIsMakeup, setEditIsMakeup] = useState(false);
+  const [editLateNotice, setEditLateNotice] = useState(false);
+  const [editExtraFeePaid, setEditExtraFeePaid] = useState(false);
+
   const [unreadByStudent, setUnreadByStudent] = useState({}) 
   const [unreadByLesson, setUnreadByLesson] = useState({})   
 
@@ -182,6 +187,10 @@ function App() {
       setEditClassDate(lesson.class_date || '');
       setEditStartTime(lesson.start_time ? lesson.start_time.substring(0, 5) : '');
       setEditEndTime(lesson.end_time ? lesson.end_time.substring(0, 5) : '');
+      // LÊ OS NOVOS ESTADOS AQUI
+      setEditIsMakeup(lesson.is_makeup || false);
+      setEditLateNotice(lesson.late_notice || false);
+      setEditExtraFeePaid(lesson.extra_fee_paid || false);
     } else { setIsEditing(false); }
 
     const { data } = await supabase.from('messages').select('*').eq('lesson_id', lesson.id).order('created_at', { ascending: true });
@@ -220,7 +229,11 @@ function App() {
         end_time: editEndTime || null,
         duration_minutes: duration_minutes > 0 ? duration_minutes : 0,
         professor_checkin: true, 
-        is_absent: false
+        is_absent: false,
+        // INSERE OS NOVOS ESTADOS NO BANCO AQUI
+        is_makeup: editIsMakeup,
+        late_notice: editLateNotice,
+        extra_fee_paid: editExtraFeePaid
       };
 
       if (isEditing) {
@@ -422,14 +435,29 @@ function App() {
                           setEditClassDate(now.toISOString().split('T')[0]);
                           setEditStartTime(now.toTimeString().split(' ')[0].substring(0,5));
                           setEditEndTime('');
+                          // RESETA OS NOVOS ESTADOS AO CRIAR NOVA AULA
+                          setEditIsMakeup(false);
+                          setEditLateNotice(false);
+                          setEditExtraFeePaid(false);
                           if(window.innerWidth < 1024) setIsLessonListOpen(false); 
                         }} className="flex items-center gap-1 text-[#5A77DF] font-bold text-xs bg-[#5A77DF]/10 hover:bg-[#5A77DF]/20 px-2.5 py-1.5 rounded-lg transition-all border border-[#5A77DF]/20"><Plus size={14} /> Nova</button>}</div>
                         {lessons.map(l => (
-                          <div key={l.id} className="group relative"><div onClick={() => selectLesson(l, 'view')} className={`p-4 rounded-2xl cursor-pointer transition-all relative ${selectedLesson?.id === l.id && !isEditing && !isCreating ? 'bg-[#5A77DF] text-white shadow-md' : 'bg-[var(--bg-card)] hover:bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-main)] shadow-sm'}`}>
-                          {unreadByLesson[l.id] && selectedLesson?.id !== l.id && <div className="absolute left-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-red-500 rounded-full"></div>}
-                          <p className={`text-sm font-semibold truncate ${profile?.role === 'teacher' ? 'pr-16 lg:pr-6' : ''} ${unreadByLesson[l.id] && selectedLesson?.id !== l.id ? 'pl-2' : ''}`}>{l.title}</p></div>
-                          {profile?.role === 'teacher' && <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 flex gap-1 bg-[var(--bg-card)] shadow-md p-1 rounded-xl border border-[var(--border-color)] transition-all z-10"><button onClick={(e) => { e.stopPropagation(); selectLesson(l, 'edit'); if(window.innerWidth < 1024) setIsLessonListOpen(false); }} className="p-1.5 text-[var(--text-muted)] hover:text-[#5A77DF] hover:bg-[var(--bg-input)] rounded-lg"><Pencil size={14}/></button>
-                          <button onClick={(e) => { e.stopPropagation(); setShowDeleteModal(l.id); }} className="p-1.5 text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 rounded-lg"><Trash2 size={14}/></button></div>}</div>
+                          <div key={l.id} className="group relative">
+                            <div onClick={() => selectLesson(l, 'view')} className={`p-4 rounded-2xl cursor-pointer transition-all relative border ${selectedLesson?.id === l.id && !isEditing && !isCreating ? 'bg-[#5A77DF] text-white shadow-md border-[#5A77DF]' : l.is_makeup ? 'bg-yellow-500/10 hover:bg-yellow-500/20 border-yellow-500/30 text-yellow-700 dark:text-yellow-500' : 'bg-[var(--bg-card)] hover:bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-main)] shadow-sm'}`}>
+                              {l.is_makeup && <span className="absolute top-0 right-0 bg-yellow-500 text-white text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-bl-lg rounded-tr-lg">Reposição</span>}
+                              {unreadByLesson[l.id] && selectedLesson?.id !== l.id && <div className="absolute left-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-red-500 rounded-full"></div>}
+                              <p className={`text-sm font-semibold truncate ${profile?.role === 'teacher' ? 'pr-16 lg:pr-6' : ''} ${unreadByLesson[l.id] && selectedLesson?.id !== l.id ? 'pl-2' : ''}`}>{l.title}</p>
+                              {l.late_notice && (
+                                <div className="flex items-center gap-1 mt-1.5">
+                                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${l.extra_fee_paid ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                    {l.extra_fee_paid ? 'Taxa Paga' : 'Taxa Pendente'}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            {profile?.role === 'teacher' && <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 flex gap-1 bg-[var(--bg-card)] shadow-md p-1 rounded-xl border border-[var(--border-color)] transition-all z-10"><button onClick={(e) => { e.stopPropagation(); selectLesson(l, 'edit'); if(window.innerWidth < 1024) setIsLessonListOpen(false); }} className="p-1.5 text-[var(--text-muted)] hover:text-[#5A77DF] hover:bg-[var(--bg-input)] rounded-lg"><Pencil size={14}/></button>
+                            <button onClick={(e) => { e.stopPropagation(); setShowDeleteModal(l.id); }} className="p-1.5 text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 rounded-lg"><Trash2 size={14}/></button></div>}
+                          </div>
                         ))}</div></div>
                     )}
                   </div>
@@ -454,6 +482,29 @@ function App() {
                               <input type="time" value={editEndTime} onChange={e => setEditEndTime(e.target.value)} className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl px-4 py-3 outline-none focus:border-[#5A77DF]" />
                             </div>
                           </div>
+
+                        {/* BLOCO DE CHECKBOXES ADICIONADO AQUI */}
+                        <div className="flex flex-wrap gap-4 p-4 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl">
+                          <label className="flex items-center gap-2 text-sm font-bold text-[var(--text-main)] cursor-pointer">
+                            <input type="checkbox" checked={editIsMakeup} onChange={e => setEditIsMakeup(e.target.checked)} className="w-4 h-4 accent-[#5A77DF]" />
+                            Aula de Reposição
+                          </label>
+
+                          <label className="flex items-center gap-2 text-sm font-bold text-orange-500 cursor-pointer">
+                            <input type="checkbox" checked={editLateNotice} onChange={e => {
+                                setEditLateNotice(e.target.checked);
+                                if (!e.target.checked) setEditExtraFeePaid(false);
+                              }} className="w-4 h-4 accent-orange-500" />
+                            Aviso Tardio (Cobrar à parte)
+                          </label>
+
+                          {editLateNotice && (
+                            <label className="flex items-center gap-2 text-sm font-bold text-emerald-500 cursor-pointer md:ml-auto md:border-l md:border-[var(--border-color)] md:pl-4">
+                              <input type="checkbox" checked={editExtraFeePaid} onChange={e => setEditExtraFeePaid(e.target.checked)} className="w-4 h-4 accent-emerald-500" />
+                              Taxa Extra Paga
+                            </label>
+                          )}
+                        </div>
 
                         <div className="flex-1 bg-[var(--bg-card)] rounded-[2rem] border border-[var(--border-color)] overflow-hidden shadow-sm flex flex-col min-h-[300px]"><ReactQuill theme="snow" value={editContent} onChange={setEditContent} modules={modules} className="h-full flex-1 flex flex-col editor-clean" /></div>
                         <div className="flex justify-end pt-2 pb-6 md:pb-0"><button type="submit" className="w-full md:w-auto bg-[#5A77DF] text-white font-bold py-4 px-8 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#4a63be] transition-all shadow-lg active:scale-95 text-sm"><Save size={18}/> {isEditing ? 'Update Lesson' : 'Publish to Journal'}</button></div></form>
