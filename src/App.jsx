@@ -12,7 +12,7 @@ import {
   MessageSquare, Sun, Moon, Menu, ChevronRight, BookText, Users, Clock, CheckCircle2
 } from 'lucide-react'
 import CollaborativeEditor from './components/CollaborativeEditor';
-
+import DashboardStats from './components/DashboardStats';
 
 function App() {
   const [session, setSession] = useState(null)
@@ -371,11 +371,15 @@ function App() {
 
           <main className="flex-1 flex flex-col h-screen overflow-hidden relative bg-[var(--bg-app)]">
             {currentView === 'crm' && profile?.role === 'teacher' ? (
-              <StudentCRM profile={profile} students={students} isDarkMode={isDarkMode} />
+              <StudentCRM profile={profile} students={students} isDarkMode={isDarkMode} fetchStudents={fetchStudents} />
             ) : currentView === 'vocabulary' ? (
               <div className="flex-1 w-full h-full"><VocabularyDeck profile={profile} session={session} selectedStudent={selectedStudent} isDarkMode={isDarkMode} /></div>
             ) : (profile?.role === 'teacher' && !selectedStudent) || (profile?.role === 'student' && currentView === 'dashboard') ? (
-              <div className="flex-1 overflow-y-auto p-6 md:p-10 lg:p-12 animate-in fade-in duration-500"><div className="max-w-5xl mx-auto w-full pt-16 lg:pt-0"><header className="flex justify-between items-end mb-8"><div><h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--text-main)]">Your Students</h1><p className="text-[var(--text-muted)] text-sm mt-1">Select a student to manage their journal</p></div></header>
+              <div className="flex-1 overflow-y-auto p-6 md:p-10 lg:p-12 animate-in fade-in duration-500"><div className="max-w-5xl mx-auto w-full pt-16 lg:pt-0">
+              
+              {profile?.role === 'teacher' && <DashboardStats students={students} />}
+
+              <header className="flex justify-between items-end mb-8"><div><h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--text-main)]">Your Students</h1><p className="text-[var(--text-muted)] text-sm mt-1">Select a student to manage their journal</p></div></header>
               <div className="flex flex-col gap-4">{students.map(s => (
                 <div key={s.id} onClick={() => {setCurrentView('journal'); setSelectedStudent(s); fetchMyLessons(s.id); if(window.innerWidth < 1024) setIsLessonListOpen(true)}} className="bg-[var(--bg-card)] border border-[var(--border-color)] p-4 md:p-5 rounded-2xl hover:shadow-md cursor-pointer transition-all flex items-center justify-between group shadow-sm relative overflow-hidden">
                   <div className="flex items-center gap-4 md:gap-5"><div className="w-12 h-12 md:w-14 md:h-14 bg-[var(--icon-bg)] text-[var(--icon-color)] rounded-[1rem] flex items-center justify-center text-lg md:text-xl font-bold group-hover:bg-[#5A77DF] group-hover:text-white transition-all shadow-sm">{s.full_name?.charAt(0)}</div><div className="text-left"><h3 className="text-base md:text-lg font-bold text-[var(--text-main)] truncate max-w-[200px] md:max-w-sm tracking-tight">{s.full_name}</h3><p className="text-[var(--text-muted)] text-[10px] md:text-xs uppercase tracking-widest font-bold mt-1">Acessar Journal</p></div></div>
