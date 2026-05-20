@@ -38,8 +38,6 @@ function formatDate(d) {
   try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); } catch { return d; }
 }
 
-
-
 function getMonthOptions() {
   const opts = [], now = new Date();
   for (let i = 0; i < 12; i++) {
@@ -181,7 +179,7 @@ export default function StudentDetail({ student, profile, onBack }) {
 
   const handleReschedule = async (e) => {
     e.preventDefault();
-    if (!resForm.new_date || !resForm.new_start_time || !resForm.new_end_time) return;
+    if (!resForm.new_date || !resForm.new_start_time) return;
     
     setSavingRes(true);
 
@@ -192,7 +190,7 @@ export default function StudentDetail({ student, profile, onBack }) {
         title: resForm.title || 'Aula Reagendada',
         class_date: resForm.new_date,
         start_time: toTime(resForm.new_start_time),
-        end_time: toTime(resForm.new_end_time),
+        end_time: resForm.new_end_time ? toTime(resForm.new_end_time) : null,
         duration_minutes: 60,
         is_absent: resForm.is_late,
         is_late_cancellation: resForm.is_late
@@ -467,7 +465,7 @@ export default function StudentDetail({ student, profile, onBack }) {
                               <td className="px-3 py-3.5 text-[var(--text-muted)] whitespace-nowrap">{formatTime(l.start_time)} – {formatTime(l.end_time)}</td>
                               <td className="px-3 py-3.5 text-center"><span className="font-bold text-[var(--text-main)]">{l.duration_minutes || 0}</span><span className="text-[var(--text-lighter)] text-xs ml-0.5">min</span></td>
                               <td className="px-3 py-3.5 text-center">
-                                {l.is_late_cancellation ? (
+                                {(l.is_late_cancellation || l.late_notice) && isMakeup ? (
                                   <button onClick={() => update(l.id, { extra_fee_paid: !l.extra_fee_paid })} disabled={updating === `extra_fee_paid_${l.id}`} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${l.extra_fee_paid ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'}`}>
                                     {updating === `extra_fee_paid_${l.id}` ? <Loader2 size={12} className="animate-spin" /> : (l.extra_fee_paid ? <><CheckCircle2 size={12} /> Taxa Paga</> : 'Taxa Pendente')}
                                   </button>
@@ -605,7 +603,7 @@ export default function StudentDetail({ student, profile, onBack }) {
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-[var(--text-lighter)] uppercase tracking-widest mb-1 block">Novo Fim</label>
-                    <input type="time" value={resForm.new_end_time} onChange={e => setResForm({...resForm, new_end_time: e.target.value})} className="w-full px-3 py-2.5 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] text-sm outline-none focus:border-amber-500 transition-all" required />
+                    <input type="time" value={resForm.new_end_time} onChange={e => setResForm({...resForm, new_end_time: e.target.value})} className="w-full px-3 py-2.5 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] text-sm outline-none focus:border-amber-500 transition-all"  />
                   </div>
                 </div>
 
@@ -624,7 +622,7 @@ export default function StudentDetail({ student, profile, onBack }) {
                   <input type="text" value={resForm.reason} onChange={e => setResForm({...resForm, reason: e.target.value})} placeholder="Ex: Problemas de internet..." className="w-full px-3 py-2.5 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl text-[var(--text-main)] text-sm outline-none focus:border-amber-500 transition-all" />
                 </div>
                 
-                <button type="submit" disabled={savingRes || !resForm.new_date || !resForm.new_start_time || !resForm.new_end_time} className="w-full bg-amber-500 text-white font-bold text-sm py-3 rounded-xl hover:bg-amber-600 disabled:opacity-50 transition-all flex justify-center items-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95">
+                <button type="submit" disabled={savingRes || !resForm.new_date || !resForm.new_start_time} className="w-full bg-amber-500 text-white font-bold text-sm py-3 rounded-xl hover:bg-amber-600 disabled:opacity-50 transition-all flex justify-center items-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95">
                   {savingRes ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Salvar Reagendamento
                 </button>
               </form>

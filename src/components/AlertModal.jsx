@@ -5,6 +5,10 @@ export const showAlert = (title, message, type = 'error') => {
   window.dispatchEvent(new CustomEvent('show-alert', { detail: { title, message, type } }));
 };
 
+export const showConfirm = (title, message, onConfirm) => {
+  window.dispatchEvent(new CustomEvent('show-confirm', { detail: { title, message, onConfirm } }));
+};
+
 // Sobrescreve o window.alert para que as chamadas antigas mostrem o modal
 // assume que chamadas diretas são sempre de atenção
 if (typeof window !== 'undefined') {
@@ -28,15 +32,23 @@ if (typeof window !== 'undefined') {
 
 export default function AlertModal() {
   const [isOpen, setIsOpen] = useState(false);
-  const [alertData, setAlertData] = useState({ title: '', message: '', type: 'error' });
+  const [alertData, setAlertData] = useState({ title: '', message: '', type: 'error', onConfirm: null });
 
   useEffect(() => {
     const handleShowAlert = (e) => {
-      setAlertData(e.detail);
+      setAlertData({ ...e.detail, onConfirm: null });
+      setIsOpen(true);
+    };
+    const handleShowConfirm = (e) => {
+      setAlertData({ title: e.detail.title, message: e.detail.message, type: 'info', onConfirm: e.detail.onConfirm });
       setIsOpen(true);
     };
     window.addEventListener('show-alert', handleShowAlert);
-    return () => window.removeEventListener('show-alert', handleShowAlert);
+    window.addEventListener('show-confirm', handleShowConfirm);
+    return () => {
+      window.removeEventListener('show-alert', handleShowAlert);
+      window.removeEventListener('show-confirm', handleShowConfirm);
+    };
   }, []);
 
   if (!isOpen) return null;
