@@ -144,31 +144,44 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
 
         {!loading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {studentSummaries.map(({ student, hours, lessons: count, remaining }) => (
-               <div key={student.id} onClick={() => setActiveStudent(student)}
-                 className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl p-5 shadow-sm hover:shadow-md cursor-pointer transition-all group relative overflow-hidden">
-                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#5A77DF] to-[#8B5CF6] opacity-40" />
-                 <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 bg-[var(--icon-bg)] text-[var(--icon-color)] rounded-xl flex items-center justify-center text-lg font-bold">{student.full_name?.charAt(0)}</div>
-                      <div>
-                        <h3 className="text-sm font-bold text-[var(--text-main)]">{student.full_name}</h3>
-                        <p className="text-[var(--text-muted)] text-[10px] uppercase tracking-widest font-bold">{count} lesson{count !== 1 ? 's' : ''}</p>
-                      </div>
+            {(() => {
+              const sorted = [...studentSummaries].sort((a, b) => (a.student.full_name || '').localeCompare(b.student.full_name || '', 'pt-BR'))
+              let lastLetter = null
+              const items = []
+              sorted.forEach(({ student, hours, lessons: count, remaining }) => {
+                const letter = student.full_name?.charAt(0).toUpperCase() || '#'
+                if (letter !== lastLetter) {
+                  lastLetter = letter
+                  items.push(<div key={`sep-${letter}`} className="col-span-full px-2 py-1 text-xs font-bold tracking-widest text-[var(--text-lighter)] uppercase">{letter}</div>)
+                }
+                items.push(
+                  <div key={student.id} onClick={() => setActiveStudent(student)}
+                    className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl p-5 shadow-sm hover:shadow-md cursor-pointer transition-all group relative overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#5A77DF] to-[#8B5CF6] opacity-40" />
+                    <div className="flex items-center justify-between mb-4">
+                       <div className="flex items-center gap-3">
+                         <div className="w-11 h-11 bg-[var(--icon-bg)] text-[var(--icon-color)] rounded-xl flex items-center justify-center text-lg font-bold">{student.full_name?.charAt(0)}</div>
+                         <div>
+                           <h3 className="text-sm font-bold text-[var(--text-main)]">{student.full_name}</h3>
+                           <p className="text-[var(--text-muted)] text-[10px] uppercase tracking-widest font-bold">{count} lesson{count !== 1 ? 's' : ''}</p>
+                         </div>
+                       </div>
+                       <button
+                         onClick={e => openScheduleModal(e, student)}
+                         className="p-1.5 rounded-lg text-[var(--text-lighter)] hover:text-[#5A77DF] hover:bg-[#5A77DF]/10 transition-all"
+                         title="Editar horário fixo"
+                       ><CalendarDays size={15} /></button>
+                       <ChevronRight size={16} className="text-[var(--text-lighter)]" />
                     </div>
-                    <button
-                      onClick={e => openScheduleModal(e, student)}
-                      className="p-1.5 rounded-lg text-[var(--text-lighter)] hover:text-[#5A77DF] hover:bg-[#5A77DF]/10 transition-all"
-                      title="Editar horário fixo"
-                    ><CalendarDays size={15} /></button>
-                    <ChevronRight size={16} className="text-[var(--text-lighter)]" />
-                 </div>
-                 <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold bg-[#5A77DF]/10 text-[#5A77DF] px-2.5 py-1 rounded-lg border border-[#5A77DF]/20"><Clock size={11} className="inline mr-1" />{hours}h</span>
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${remaining > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}><Package size={11} className="inline mr-1" />{remaining > 0 ? `${remaining}/4 restam` : 'Renovar'}</span>
-                 </div>
-               </div>
-            ))}
+                    <div className="flex items-center gap-2">
+                       <span className="text-xs font-bold bg-[#5A77DF]/10 text-[#5A77DF] px-2.5 py-1 rounded-lg border border-[#5A77DF]/20"><Clock size={11} className="inline mr-1" />{hours}h</span>
+                       <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${remaining > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}><Package size={11} className="inline mr-1" />{remaining > 0 ? `${remaining}/4 restam` : 'Renovar'}</span>
+                    </div>
+                  </div>
+                )
+              })
+              return items
+            })()}
           </div>
         )}
 

@@ -166,21 +166,34 @@ function App() {
                     </div>
                   </header>
                   <div className="flex flex-col gap-4">
-                    {students.map(s => (
-                      <div key={s.id} onClick={() => { setCurrentView('journal'); setSelectedStudent(s); fetchMyLessons(s.id); if (window.innerWidth < 1024) setIsLessonListOpen(true); }} className="bg-[var(--bg-card)] border border-[var(--border-color)] p-4 md:p-5 rounded-2xl hover:shadow-md cursor-pointer transition-all flex items-center justify-between group shadow-sm relative overflow-hidden">
-                        <div className="flex items-center gap-4 md:gap-5">
-                          <div className="w-12 h-12 md:w-14 md:h-14 bg-[var(--icon-bg)] text-[var(--icon-color)] rounded-[1rem] flex items-center justify-center text-lg md:text-xl font-bold group-hover:bg-[#5A77DF] group-hover:text-white transition-all shadow-sm">{s.full_name?.charAt(0)}</div>
-                          <div className="text-left">
-                            <h3 className="text-base md:text-lg font-bold text-[var(--text-main)] truncate max-w-[200px] md:max-w-sm tracking-tight">{s.full_name}</h3>
-                            <p className="text-[var(--text-muted)] text-[10px] md:text-xs uppercase tracking-widest font-bold mt-1">Acessar Journal</p>
+                    {(() => {
+                      const sorted = [...students].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', 'pt-BR'))
+                      let lastLetter = null
+                      const items = []
+                      sorted.forEach(s => {
+                        const letter = s.full_name?.charAt(0).toUpperCase() || '#'
+                        if (letter !== lastLetter) {
+                          lastLetter = letter
+                          items.push(<div key={`sep-${letter}`} className="px-2 py-1 text-xs font-bold tracking-widest text-[var(--text-lighter)] uppercase">{letter}</div>)
+                        }
+                        items.push(
+                          <div key={s.id} onClick={() => { setCurrentView('journal'); setSelectedStudent(s); fetchMyLessons(s.id); if (window.innerWidth < 1024) setIsLessonListOpen(true); }} className="bg-[var(--bg-card)] border border-[var(--border-color)] p-4 md:p-5 rounded-2xl hover:shadow-md cursor-pointer transition-all flex items-center justify-between group shadow-sm relative overflow-hidden">
+                            <div className="flex items-center gap-4 md:gap-5">
+                              <div className="w-12 h-12 md:w-14 md:h-14 bg-[var(--icon-bg)] text-[var(--icon-color)] rounded-[1rem] flex items-center justify-center text-lg md:text-xl font-bold group-hover:bg-[#5A77DF] group-hover:text-white transition-all shadow-sm">{s.full_name?.charAt(0)}</div>
+                              <div className="text-left">
+                                <h3 className="text-base md:text-lg font-bold text-[var(--text-main)] truncate max-w-[200px] md:max-w-sm tracking-tight">{s.full_name}</h3>
+                                <p className="text-[var(--text-muted)] text-[10px] md:text-xs uppercase tracking-widest font-bold mt-1">Acessar Journal</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4 pr-2">
+                              {unreadByStudent[s.id] && <div className="w-3 h-3 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse"></div>}
+                              <ChevronRight className="text-[var(--text-lighter)] group-hover:text-[#5A77DF] transition-colors" />
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-4 pr-2">
-                          {unreadByStudent[s.id] && <div className="w-3 h-3 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse"></div>}
-                          <ChevronRight className="text-[var(--text-lighter)] group-hover:text-[#5A77DF] transition-colors" />
-                        </div>
-                      </div>
-                    ))}
+                        )
+                      })
+                      return items
+                    })()}
                   </div>
                 </div>
               </div>

@@ -188,24 +188,37 @@ export default function VocabularyDeck({ profile, session, selectedStudent, isDa
             <p className="text-[var(--text-muted)] text-sm">Select a student to view their vocabulary deck</p>
           </header>
           <div className="flex flex-col gap-4">
-            {studentsList.map((s) => (
-              <div
-                key={s.id}
-                onClick={() => setPickedStudent(s)}
-                className="bg-[var(--bg-card)] border border-[var(--border-color)] p-4 md:p-5 rounded-2xl hover:shadow-md cursor-pointer transition-all flex items-center justify-between group shadow-sm"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-[var(--icon-bg)] text-[var(--icon-color)] rounded-[1rem] flex items-center justify-center text-lg font-bold group-hover:bg-[#5A77DF] group-hover:text-white transition-all shadow-sm">
-                    {s.full_name?.charAt(0)}
+            {(() => {
+              const sorted = [...studentsList].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', 'pt-BR'))
+              let lastLetter = null
+              const items = []
+              sorted.forEach(s => {
+                const letter = s.full_name?.charAt(0).toUpperCase() || '#'
+                if (letter !== lastLetter) {
+                  lastLetter = letter
+                  items.push(<div key={`sep-${letter}`} className="px-2 py-1 text-xs font-bold tracking-widest text-[var(--text-lighter)] uppercase">{letter}</div>)
+                }
+                items.push(
+                  <div
+                    key={s.id}
+                    onClick={() => setPickedStudent(s)}
+                    className="bg-[var(--bg-card)] border border-[var(--border-color)] p-4 md:p-5 rounded-2xl hover:shadow-md cursor-pointer transition-all flex items-center justify-between group shadow-sm"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-[var(--icon-bg)] text-[var(--icon-color)] rounded-[1rem] flex items-center justify-center text-lg font-bold group-hover:bg-[#5A77DF] group-hover:text-white transition-all shadow-sm">
+                        {s.full_name?.charAt(0)}
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-[var(--text-main)] tracking-tight">{s.full_name}</h3>
+                        <p className="text-[var(--text-muted)] text-[10px] uppercase tracking-widest font-bold mt-0.5">View Vocabulary</p>
+                      </div>
+                    </div>
+                    <ChevronDown size={18} className="text-[var(--text-lighter)] group-hover:text-[#5A77DF] transition-colors -rotate-90" />
                   </div>
-                  <div>
-                    <h3 className="text-base font-bold text-[var(--text-main)] tracking-tight">{s.full_name}</h3>
-                    <p className="text-[var(--text-muted)] text-[10px] uppercase tracking-widest font-bold mt-0.5">View Vocabulary</p>
-                  </div>
-                </div>
-                <ChevronDown size={18} className="text-[var(--text-lighter)] group-hover:text-[#5A77DF] transition-colors -rotate-90" />
-              </div>
-            ))}
+                )
+              })
+              return items
+            })()}
             {studentsList.length === 0 && (
               <div className="text-center py-20">
                 <div className="w-20 h-20 bg-[var(--bg-card)] rounded-3xl shadow-sm border border-[var(--border-color)] flex items-center justify-center mb-6 mx-auto">
