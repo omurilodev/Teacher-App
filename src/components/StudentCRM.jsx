@@ -27,6 +27,7 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [newSched, setNewSched]                 = useState({ day_of_week: 1, start_time: '' });
   const [savingSchedule, setSavingSchedule]     = useState(false);
+  const [showNewSchedForm, setShowNewSchedForm] = useState(false);
 
   const now = new Date();
   const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -59,6 +60,7 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
   const openScheduleModal = async (e, student) => {
     e.stopPropagation()
     setScheduleStudent(student)
+    setShowNewSchedForm(false)
     setLoadingSchedules(true)
     const { data } = await supabase.from('schedules')
       .select('*').eq('student_id', student.id).order('day_of_week')
@@ -69,6 +71,10 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
 
   const saveSchedule = async () => {
     if (!newSched.start_time) { showAlert('Atenção', 'Selecione um horário.', 'info'); return }
+    if (studentSchedules.some(s => s.day_of_week === Number(newSched.day_of_week))) {
+      showAlert('Atenção', 'Este aluno já tem um horário fixo neste dia.', 'info')
+      return
+    }
     setSavingSchedule(true)
     const { error } = await supabase.from('schedules').insert({
       student_id: scheduleStudent.id,
@@ -83,6 +89,7 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
         .select('*').eq('student_id', scheduleStudent.id).order('day_of_week')
       setStudentSchedules(data || [])
       setNewSched({ day_of_week: 1, start_time: '' })
+      setShowNewSchedForm(false)
     }
     setSavingSchedule(false)
   }
@@ -234,31 +241,48 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
                     </div>
                   )}
 
-                  <p className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">
-                    {studentSchedules.length === 0 ? 'Adicionar horário' : 'Novo horário'}
-                  </p>
-                  <div className="flex flex-col gap-3">
-                    <select
-                      value={newSched.day_of_week}
-                      onChange={e => setNewSched(s => ({ ...s, day_of_week: e.target.value }))}
-                      className="w-full p-3 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-main)] text-sm"
-                    >
-                      {DAY_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-                    </select>
-                    <input
-                      type="time"
-                      value={newSched.start_time}
-                      onChange={e => setNewSched(s => ({ ...s, start_time: e.target.value }))}
-                      className="w-full p-3 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-main)] text-sm"
-                    />
+                  {!showNewSchedForm ? (
                     <button
-                      onClick={saveSchedule}
-                      disabled={savingSchedule}
-                      className="w-full py-3 bg-[#5A77DF] text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#4a63be] transition-all active:scale-95 disabled:opacity-50 text-sm"
+                      onClick={() => setShowNewSchedForm(true)}
+                      className="w-full py-2.5 border border-dashed border-[var(--border-color)] text-[var(--text-muted)] hover:border-[#5A77DF] hover:text-[#5A77DF] rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
                     >
-                      {savingSchedule ? <Loader2 className="animate-spin" size={16}/> : 'Salvar'}
+                      <Plus size={14} /> Adicionar Horário
                     </button>
-                  </div>
+                  ) : (
+                    <>
+                      <p className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">Novo horário</p>
+                      <div className="flex flex-col gap-3">
+                        <select
+                          value={newSched.day_of_week}
+                          onChange={e => setNewSched(s => ({ ...s, day_of_week: e.target.value }))}
+                          className="w-full p-3 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-main)] text-sm"
+                        >
+                          {DAY_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                        </select>
+                        <input
+                          type="time"
+                          value={newSched.start_time}
+                          onChange={e => setNewSched(s => ({ ...s, start_time: e.target.value }))}
+                          className="w-full p-3 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-main)] text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setShowNewSchedForm(false)}
+                            className="flex-1 py-3 border border-[var(--border-color)] rounded-xl text-xs font-bold text-[var(--text-muted)] hover:bg-[var(--bg-input)] transition-all"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={saveSchedule}
+                            disabled={savingSchedule}
+                            className="flex-1 py-3 bg-[#5A77DF] text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#4a63be] transition-all active:scale-95 disabled:opacity-50 text-sm"
+                          >
+                            {savingSchedule ? <Loader2 className="animate-spin" size={16}/> : 'Salvar'}
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>

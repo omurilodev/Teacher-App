@@ -4,7 +4,7 @@ import StudentCRM from './components/StudentCRM'
 import VocabularyDeck from './components/VocabularyDeck'
 import {
   BookOpen, Loader2, Menu, MessageSquare,
-  ChevronRight, AlertTriangle,
+  ChevronRight, AlertTriangle, Receipt,
 } from 'lucide-react'
 import DashboardStats from './components/DashboardStats'
 import AlertModal from './components/AlertModal'
@@ -14,6 +14,7 @@ import LessonList from './components/LessonList'
 import LessonForm from './components/LessonForm'
 import LessonView from './components/LessonView'
 import WeeklySchedule from './components/WeeklySchedule'
+import PaymentReceipts from './components/PaymentReceipts'
 import { useAuth } from './hooks/useAuth'
 import { useMessages } from './hooks/useMessages'
 import { useLessons } from './hooks/useLessons'
@@ -148,6 +149,21 @@ function App() {
               <div className="flex-1 overflow-y-auto p-6 md:p-10 lg:p-12 animate-in fade-in duration-500">
                 <div className="max-w-5xl mx-auto w-full pt-16 lg:pt-0">
                   <WeeklySchedule students={students} isDarkMode={isDarkMode} />
+                </div>
+              </div>
+            ) : currentView === 'receipts' && profile?.role === 'student' ? (
+              <div className="flex-1 overflow-y-auto p-6 md:p-10 lg:p-12 animate-in fade-in duration-500">
+                <div className="max-w-3xl mx-auto w-full pt-16 lg:pt-0">
+                  <header className="mb-8">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 bg-[var(--icon-bg)] text-[var(--icon-color)] rounded-xl flex items-center justify-center shadow-sm">
+                        <Receipt size={20} />
+                      </div>
+                      <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--text-main)]">Comprovantes</h1>
+                    </div>
+                    <p className="text-[var(--text-muted)] text-sm">Envie seus comprovantes de pagamento</p>
+                  </header>
+                  <PaymentReceipts studentId={profile?.id} isTeacher={false} />
                 </div>
               </div>
             ) : (profile?.role === 'teacher' && !selectedStudent) || (profile?.role === 'student' && currentView === 'dashboard') ? (

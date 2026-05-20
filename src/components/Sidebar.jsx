@@ -2,7 +2,7 @@ import { supabase } from '../supabase'
 import {
   BookOpen, LogOut, LayoutDashboard,
   X, PanelLeftClose, PanelLeftOpen,
-  Sun, Moon, BookText, Users, CalendarDays,
+  Sun, Moon, BookText, Users, CalendarDays, Receipt,
 } from 'lucide-react'
 
 export default function Sidebar({
@@ -58,6 +58,12 @@ export default function Sidebar({
                   onClick={() => { setCurrentView('journal'); setIsMobileMenuOpen(false); }}
                   className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all font-semibold text-sm whitespace-nowrap ${currentView === 'journal' ? 'bg-[var(--bg-card)] text-[var(--text-main)] shadow-md' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}
                 ><BookOpen size={18} /> My Classes</button>
+              )}
+              {profile?.role === 'student' && (
+                <button
+                  onClick={() => { setCurrentView('receipts'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all font-semibold text-sm whitespace-nowrap ${currentView === 'receipts' ? 'bg-[var(--bg-card)] text-[var(--text-main)] shadow-md' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}
+                ><Receipt size={18} /> Comprovantes</button>
               )}
             </nav>
           </div>

@@ -5,8 +5,9 @@ import {
   ArrowLeft, Clock, DollarSign, CalendarCheck, CalendarX2, UserCheck,
   Loader2, CheckCircle2, AlertCircle, Plus, ChevronDown, X, Save,
   AlertTriangle, RefreshCw, Package, CreditCard, History, CalendarClock, ArrowRight, FileText,
-  BookOpen, Wallet, CalendarDays, Trash2
+  BookOpen, Wallet, CalendarDays, Trash2, Receipt,
 } from 'lucide-react';
+import PaymentReceipts from './PaymentReceipts';
 
 function formatMonth(ym) {
   if (!ym) return '';
@@ -296,6 +297,9 @@ export default function StudentDetail({ student, profile, onBack }) {
           <button onClick={() => setActiveTab('reagendamentos')} className={`pb-3 px-1 text-sm font-bold tracking-tight whitespace-nowrap transition-all border-b-2 flex items-center gap-2 ${activeTab === 'reagendamentos' ? 'border-[#5A77DF] text-[#5A77DF]' : 'border-transparent text-[var(--text-lighter)] hover:text-[var(--text-main)]'}`}>
             <CalendarDays size={16} /> Reagendamentos
           </button>
+          <button onClick={() => setActiveTab('comprovantes')} className={`pb-3 px-1 text-sm font-bold tracking-tight whitespace-nowrap transition-all border-b-2 flex items-center gap-2 ${activeTab === 'comprovantes' ? 'border-[#5A77DF] text-[#5A77DF]' : 'border-transparent text-[var(--text-lighter)] hover:text-[var(--text-main)]'}`}>
+            <Receipt size={16} /> Comprovantes
+          </button>
         </div>
 
         {/* --- TAB: AULAS --- */}
@@ -571,6 +575,13 @@ export default function StudentDetail({ student, profile, onBack }) {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* --- TAB: COMPROVANTES --- */}
+        {activeTab === 'comprovantes' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-2xl">
+            <PaymentReceipts studentId={student.id} isTeacher={true} />
           </div>
         )}
 

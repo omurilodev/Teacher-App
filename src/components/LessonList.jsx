@@ -110,7 +110,7 @@ export default function LessonList({
                   {(l.late_notice || l.is_makeup) && (
                     <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                       {l.is_makeup && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">Reposição</span>}
-                      {l.late_notice && (
+                      {l.late_notice && profile?.role === 'teacher' && (
                         <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${l.extra_fee_paid ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
                           {l.extra_fee_paid ? 'Taxa Paga' : 'Taxa Pendente'}
                         </span>
