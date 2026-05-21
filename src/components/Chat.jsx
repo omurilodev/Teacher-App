@@ -15,7 +15,7 @@ export default function Chat({
   }, [messages, isMobileChatOpen, isChatOpen])
 
   return (
-    <div className={`absolute lg:relative z-40 h-full right-0 ${isMobileChatOpen ? 'translate-x-0 w-full sm:w-96' : 'translate-x-full lg:translate-x-0'} ${isChatOpen ? 'lg:w-96' : 'lg:w-16'} transition-all duration-300 ease-in-out lg:border-l border-[var(--border-color)] flex flex-col bg-[var(--bg-chat)] shrink-0 shadow-2xl lg:shadow-none`}>
+    <div className={`absolute lg:relative z-40 h-full right-0 w-full sm:w-96 ${isChatOpen ? 'lg:w-96' : 'lg:w-16'} ${isMobileChatOpen ? 'translate-x-0 pointer-events-auto' : 'translate-x-full lg:translate-x-0 pointer-events-none lg:pointer-events-auto'} transition-transform duration-300 ease-in-out lg:border-l border-[var(--border-color)] flex flex-col bg-[var(--bg-chat)] shrink-0 shadow-2xl lg:shadow-none`}>
       {!isChatOpen && window.innerWidth >= 1024 ? (
         <div className="flex-1 flex flex-col items-center pt-8">
           <button onClick={() => setIsChatOpen(true)} className="relative text-[var(--text-lighter)] hover:text-[#5A77DF] transition-all mb-8 bg-[var(--bg-input)] p-2 rounded-xl shadow-sm border border-[var(--border-color)]">

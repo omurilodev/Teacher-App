@@ -29,12 +29,18 @@ export default function DashboardStats({ students }) {
         m.remaining = 0; 
       } else {
         const sAll = (allLessons || []).filter(l => l.student_id === m.student.id);
-        const consumed = sAll.filter(l => !l.is_absent && l.class_date && l.class_date >= lpd).length;
+        const consumed = sAll.filter(l =>
+          l.class_date && l.class_date >= lpd && (
+            (!l.is_makeup && !l.is_absent && l.end_time) ||
+            (l.is_absent && l.late_notice) ||
+            (l.is_makeup && !l.late_notice && l.end_time)
+          )
+        ).length;
         m.remaining = Math.max(0, 4 - consumed);
       }
 
       if (m.remaining === 0) redCount++;
-      else if (m.remaining === 1 || m.remaining === 2) yellowCount++;
+      else if (m.remaining === 1) yellowCount++;
     });
 
     return {

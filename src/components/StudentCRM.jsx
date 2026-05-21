@@ -6,6 +6,7 @@ import {
   Users, Clock, Loader2, ChevronRight, Package, Plus, X, CalendarDays, Trash2,
 } from 'lucide-react';
 import { useLessonsRealtime } from '../hooks/useLessonsRealtime';
+import { generateLessonsForSchedule } from '../utils/generateLessons';
 
 const DAY_OPTIONS = [
   { value: 1, label: 'Segunda' },
@@ -32,7 +33,7 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
   const now = new Date();
   const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  const { lessons: allLessons } = useLessonsRealtime({});
+  const { lessons: allLessons, refetch: refetchAll } = useLessonsRealtime({});
   const { lessons, loading } = useLessonsRealtime({ referenceMonth: curMonth });
 
   const createStudent = async () => {
@@ -84,6 +85,7 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
     if (error) {
       showAlert('Erro', error.message, 'error')
     } else {
+      await generateLessonsForSchedule(scheduleStudent.id, Number(newSched.day_of_week), newSched.start_time)
       showAlert('Sucesso', 'Horário salvo!', 'success')
       const { data } = await supabase.from('schedules')
         .select('*').eq('student_id', scheduleStudent.id).order('day_of_week')
@@ -118,7 +120,13 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
         m.remaining = 0;
       } else {
         const sAll = (allLessons || []).filter(l => l.student_id === m.student.id);
-        const consumed = sAll.filter(l => !l.is_absent && !l.late_notice && l.class_date && l.class_date >= lpd).length;
+        const consumed = sAll.filter(l =>
+          l.class_date && l.class_date >= lpd && (
+            (!l.is_makeup && !l.is_absent && l.end_time) ||
+            (l.is_absent && l.late_notice) ||
+            (l.is_makeup && !l.late_notice && l.end_time)
+          )
+        ).length;
         m.remaining = Math.max(0, 4 - consumed);
       }
     });
@@ -126,7 +134,7 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
   }, [students, lessons, allLessons]);
 
   if (activeStudent) {
-    return <StudentDetail student={activeStudent} profile={profile} onBack={() => setActiveStudent(null)} />;
+    return <StudentDetail student={activeStudent} profile={profile} onBack={() => { setActiveStudent(null); refetchAll(); }} />;
   }
 
   return (
@@ -182,7 +190,7 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
                     </div>
                     <div className="flex items-center gap-2">
                        <span className="text-xs font-bold bg-[#5A77DF]/10 text-[#5A77DF] px-2.5 py-1 rounded-lg border border-[#5A77DF]/20"><Clock size={11} className="inline mr-1" />{hours}h</span>
-                       <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${remaining > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}><Package size={11} className="inline mr-1" />{remaining > 0 ? `${remaining}/4 restam` : 'Renovar'}</span>
+                       <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${remaining === 0 ? 'bg-red-500/10 text-red-400 border-red-500/20' : remaining === 1 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}><Package size={11} className="inline mr-1" />{remaining === 0 ? 'Renovar' : remaining === 1 ? '4ª aula' : `${remaining}/4 restam`}</span>
                     </div>
                   </div>
                 )

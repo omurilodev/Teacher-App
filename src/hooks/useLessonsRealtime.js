@@ -40,7 +40,28 @@ export function useLessonsRealtime({ studentId = null, referenceMonth = null } =
 
       const { data, error: fetchError } = await query;
       if (fetchError) throw fetchError;
-      setLessons(data || []);
+
+      const fetched = data || [];
+
+      // Auto-mark absent when viewing all lessons for a specific student
+      if (studentId && !referenceMonth && fetched.length > 0) {
+        const today = new Date().toISOString().split('T')[0];
+        const toMark = fetched.filter(l =>
+          l.class_date && l.class_date < today &&
+          !l.student_checkin && !l.professor_checkin &&
+          !l.end_time && !l.is_absent
+        );
+        if (toMark.length > 0) {
+          const ids = toMark.map(l => l.id);
+          const { error: absErr } = await supabase.from('lessons').update({ is_absent: true }).in('id', ids);
+          if (!absErr) {
+            setLessons(fetched.map(l => ids.includes(l.id) ? { ...l, is_absent: true } : l));
+            return;
+          }
+        }
+      }
+
+      setLessons(fetched);
     } catch (err) {
       console.error('[useLessonsRealtime] fetch error:', err);
       setError(err.message);
@@ -133,5 +154,5 @@ export function useLessonsRealtime({ studentId = null, referenceMonth = null } =
     };
   }, [studentId, referenceMonth]);
 
-  return { lessons, loading, error, presenceState, refetch: fetchLessons };
+  return { lessons, setLessons, loading, error, presenceState, refetch: fetchLessons };
 }

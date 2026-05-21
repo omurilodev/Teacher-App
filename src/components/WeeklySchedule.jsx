@@ -27,25 +27,29 @@ function formatRange(monday) {
 
 function resolveStatus(swl, dateStr, todayStr) {
   const dailyLessons = swl.filter(l => l.class_date === dateStr)
-  
+
+  const makeupDone = dailyLessons.find(l => l.is_makeup && l.end_time !== null && l.end_time !== undefined)
+  if (makeupDone) return 'reposition_done'
+
   if (dailyLessons.some(l => l.end_time !== null && l.end_time !== undefined)) return 'done'
-  
+
   const makeupLesson = dailyLessons.find(l => l.is_makeup)
   if (makeupLesson) return (makeupLesson.late_notice || makeupLesson.is_late_cancellation) ? 'late_makeup' : 'makeup'
-  
+
   if (dailyLessons.some(l => l.is_absent)) return 'absent'
-  
+
   if (dateStr < todayStr) return 'missed'
   return 'pending'
 }
 
 const STATUS_CFG = {
-  done:        { label: 'Realizada',          card: 'bg-emerald-500/10 border-emerald-500',     badge: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' },
-  makeup:      { label: 'Reposição',          card: 'bg-yellow-400/10 border-yellow-400',       badge: 'bg-yellow-400/20 text-yellow-600 border-yellow-400/30' },
-  late_makeup: { label: 'Reposição (Atraso)', card: 'bg-red-500/10 border-red-500',             badge: 'bg-red-500/15 text-red-500 border-red-500/30' },
-  absent:      { label: 'Falta',              card: 'bg-red-500/10 border-red-500',             badge: 'bg-red-500/15 text-red-500 border-red-500/30' },
-  missed:      { label: 'Falta',              card: 'bg-red-500/5 border-red-400/40',           badge: 'bg-red-400/10 text-red-400/70 border-red-400/20' },
-  pending:     { label: 'Pendente',           card: 'bg-[var(--bg-app)]/40 border-[var(--border-color)]', badge: 'bg-transparent text-[var(--text-lighter)] border-[var(--border-color)]' },
+  done:             { label: 'Realizada',          card: 'bg-emerald-500/10 border-emerald-500',     badge: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' },
+  reposition_done:  { label: '✅ Reposição Feita', card: 'bg-emerald-500/10 border-emerald-500',     badge: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' },
+  makeup:           { label: 'Reposição',          card: 'bg-yellow-400/10 border-yellow-400',       badge: 'bg-yellow-400/20 text-yellow-600 border-yellow-400/30' },
+  late_makeup:      { label: 'Reposição (Atraso)', card: 'bg-red-500/10 border-red-500',             badge: 'bg-red-500/15 text-red-500 border-red-500/30' },
+  absent:           { label: 'Falta',              card: 'bg-red-500/10 border-red-500',             badge: 'bg-red-500/15 text-red-500 border-red-500/30' },
+  missed:           { label: 'Falta',              card: 'bg-red-500/5 border-red-400/40',           badge: 'bg-red-400/10 text-red-400/70 border-red-400/20' },
+  pending:          { label: 'Pendente',           card: 'bg-[var(--bg-app)]/40 border-[var(--border-color)]', badge: 'bg-transparent text-[var(--text-lighter)] border-[var(--border-color)]' },
 }
 
 export default function WeeklySchedule({ students, isDarkMode }) {
@@ -75,13 +79,16 @@ export default function WeeklySchedule({ students, isDarkMode }) {
   }, [])
 
   useEffect(() => {
-    setLoading(true)
-    supabase.from('lessons')
-      // CORREÇÃO: start_time incluído na busca inicial
-      .select('id, student_id, class_date, is_makeup, is_absent, start_time, end_time, late_notice, is_late_cancellation')
-      .gte('class_date', toDateStr(monday))
-      .lte('class_date', saturdayStr)
-      .then(({ data }) => { setWeekLessons(data || []); setLoading(false) })
+    async function fetchLessons() {
+      setLoading(true)
+      const { data } = await supabase.from('lessons')
+        .select('id, student_id, class_date, is_makeup, is_absent, start_time, end_time, late_notice, is_late_cancellation')
+        .gte('class_date', toDateStr(monday))
+        .lte('class_date', saturdayStr)
+      setWeekLessons(data || [])
+      setLoading(false)
+    }
+    fetchLessons()
   }, [monday, saturdayStr])
 
   const todayStr = toDateStr(new Date())
@@ -92,53 +99,78 @@ export default function WeeklySchedule({ students, isDarkMode }) {
       return
     }
     setSavingMakeup(true)
-    const promises = []
 
-    // CORREÇÃO: start_time incluído no retorno do insert da reposição
-    promises.push(
-      supabase.from('lessons').insert({
-        student_id:        student.id,
-        is_makeup:         true,
-        class_date:        makeupForm.date,
-        start_time:        makeupForm.time + ':00',
-        title:             `Reposição — ${student.full_name}`,
-        reference_month:   makeupForm.date.substring(0, 7),
-        late_notice:       makeupForm.lateNotice,
+    try {
+      // 1. Insert the makeup lesson for the new date
+      const { data: makeupLesson, error: makeupError } = await supabase.from('lessons').insert({
+        student_id:           student.id,
+        is_makeup:            true,
+        class_date:           makeupForm.date,
+        start_time:           makeupForm.time + ':00',
+        title:                `Reposição — ${student.full_name}`,
+        reference_month:      makeupForm.date.substring(0, 7),
+        late_notice:          makeupForm.lateNotice,
         is_late_cancellation: makeupForm.lateNotice,
-        extra_fee_paid:    false,
+        extra_fee_paid:       false,
       }).select('id, student_id, class_date, is_makeup, is_absent, start_time, end_time, late_notice, is_late_cancellation').single()
-    )
 
-    if (makeupForm.lateNotice && originalDateStr && scheduleItem && !scheduleItem.id.startsWith('makeup-')) {
-      // CORREÇÃO: start_time incluído no retorno do insert da falta original
-      promises.push(
-        supabase.from('lessons').insert({
-          student_id: student.id,
-          class_date: originalDateStr,
-          start_time: scheduleItem.start_time,
-          is_absent: true,
-          late_notice: true,
-          is_late_cancellation: true,
-          title: `Falta (Aviso Tardio) — ${student.full_name}`,
-          reference_month: originalDateStr.substring(0, 7)
-        }).select('id, student_id, class_date, is_makeup, is_absent, start_time, end_time, late_notice, is_late_cancellation').single()
-      )
-    }
+      if (makeupError) throw makeupError
 
-    const results = await Promise.all(promises)
-    const hasError = results.some(r => r.error)
+      // 2. Handle the absence on the original date
+      let updatedOriginal = null
+      let insertedOriginal = null
 
-    if (hasError) {
-      const err = results.find(r => r.error).error
-      showAlert('Erro', err.message, 'error')
-    } else {
-      showAlert('Sucesso', 'Reposição processada!', 'success')
-      const insertedLessons = results.map(r => r.data)
-      setWeekLessons(prev => [...prev, ...insertedLessons])
+      if (makeupForm.lateNotice && originalDateStr && scheduleItem && !scheduleItem.id.startsWith('makeup-')) {
+        // Try to find an existing non-absent, non-makeup lesson for the original date
+        const { data: existing } = await supabase.from('lessons')
+          .select('id, student_id, class_date, is_makeup, is_absent, start_time, end_time, late_notice, is_late_cancellation')
+          .eq('student_id', student.id)
+          .eq('class_date', originalDateStr)
+          .eq('is_makeup', false)
+          .eq('is_absent', false)
+          .maybeSingle()
+
+        if (existing) {
+          // UPDATE the existing lesson to mark it absent
+          const { error: updateError } = await supabase.from('lessons')
+            .update({ is_absent: true, late_notice: true, is_late_cancellation: true })
+            .eq('id', existing.id)
+          if (updateError) throw updateError
+          updatedOriginal = { ...existing, is_absent: true, late_notice: true, is_late_cancellation: true }
+        } else {
+          // INSERT a new absence lesson (no pre-existing lesson found)
+          const { data: newAbsence, error: insertError } = await supabase.from('lessons').insert({
+            student_id:           student.id,
+            class_date:           originalDateStr,
+            start_time:           scheduleItem.start_time,
+            is_absent:            true,
+            late_notice:          true,
+            is_late_cancellation: true,
+            title:                `Falta — ${student.full_name}`,
+            reference_month:      originalDateStr.substring(0, 7),
+          }).select('id, student_id, class_date, is_makeup, is_absent, start_time, end_time, late_notice, is_late_cancellation').single()
+          if (insertError) throw insertError
+          insertedOriginal = newAbsence
+        }
+      }
+
+      // 3. Update local state
+      setWeekLessons(prev => {
+        let next = updatedOriginal
+          ? prev.map(l => l.id === updatedOriginal.id ? updatedOriginal : l)
+          : insertedOriginal
+            ? [...prev, insertedOriginal]
+            : [...prev]
+        return [...next, makeupLesson]
+      })
       setMakeupSlotId(null)
       setMakeupForm({ date: '', time: '', lateNotice: false })
+      showAlert('Sucesso', 'Reposição processada!', 'success')
+    } catch (err) {
+      showAlert('Erro', err.message, 'error')
+    } finally {
+      setSavingMakeup(false)
     }
-    setSavingMakeup(false)
   }
 
   const grid = useMemo(() => (

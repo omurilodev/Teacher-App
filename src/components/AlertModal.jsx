@@ -5,8 +5,8 @@ export const showAlert = (title, message, type = 'error') => {
   window.dispatchEvent(new CustomEvent('show-alert', { detail: { title, message, type } }));
 };
 
-export const showConfirm = (title, message, onConfirm) => {
-  window.dispatchEvent(new CustomEvent('show-confirm', { detail: { title, message, onConfirm } }));
+export const showConfirm = (title, message, onConfirm, type = 'error') => {
+  window.dispatchEvent(new CustomEvent('show-confirm', { detail: { title, message, onConfirm, type } }));
 };
 
 // Sobrescreve o window.alert para que as chamadas antigas mostrem o modal
@@ -40,7 +40,7 @@ export default function AlertModal() {
       setIsOpen(true);
     };
     const handleShowConfirm = (e) => {
-      setAlertData({ title: e.detail.title, message: e.detail.message, type: 'info', onConfirm: e.detail.onConfirm });
+      setAlertData({ title: e.detail.title, message: e.detail.message, type: e.detail.type || 'error', onConfirm: e.detail.onConfirm });
       setIsOpen(true);
     };
     window.addEventListener('show-alert', handleShowAlert);
@@ -82,9 +82,20 @@ export default function AlertModal() {
         </div>
         <h3 className="text-xl font-bold text-[var(--text-main)] mb-2 tracking-tight">{alertData.title}</h3>
         <p className="text-[var(--text-muted)] text-sm mb-8 leading-relaxed">{alertData.message}</p>
-        <button onClick={() => setIsOpen(false)} className={`w-full text-white font-bold py-4 rounded-xl shadow-md text-sm uppercase tracking-widest transition-all ${buttonColors[alertData.type]}`}>
-          OK
-        </button>
+        {alertData.onConfirm ? (
+          <div className="flex flex-col gap-3">
+            <button onClick={() => { alertData.onConfirm(); setIsOpen(false); }} className={`w-full text-white font-bold py-4 rounded-xl shadow-md text-sm uppercase tracking-widest transition-all ${buttonColors[alertData.type]}`}>
+              Confirmar
+            </button>
+            <button onClick={() => setIsOpen(false)} className="w-full bg-[var(--bg-input)] text-[var(--text-main)] font-bold py-4 rounded-xl border border-[var(--border-color)] text-sm uppercase tracking-widest">
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setIsOpen(false)} className={`w-full text-white font-bold py-4 rounded-xl shadow-md text-sm uppercase tracking-widest transition-all ${buttonColors[alertData.type]}`}>
+            OK
+          </button>
+        )}
       </div>
     </div>
   );

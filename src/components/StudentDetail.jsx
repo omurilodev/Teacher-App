@@ -5,14 +5,23 @@ import {
   ArrowLeft, Clock, DollarSign, CalendarCheck, CalendarX2, UserCheck,
   Loader2, CheckCircle2, AlertCircle, Plus, ChevronDown, X, Save,
   AlertTriangle, RefreshCw, Package, CreditCard, History, CalendarClock, ArrowRight, FileText,
-  BookOpen, Wallet, CalendarDays, Trash2, Receipt,
+  BookOpen, Wallet, CalendarDays, Trash2, Receipt, Pencil, Check,
 } from 'lucide-react';
 import PaymentReceipts from './PaymentReceipts';
+import { showConfirm, showAlert } from './AlertModal';
+import { generateAllScheduleLessons } from '../utils/generateLessons';
 
 function formatMonth(ym) {
   if (!ym) return '';
   const [y, m] = ym.split('-');
   return new Date(Number(y), Number(m) - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+function formatMonthPT(ym) {
+  if (!ym) return '';
+  const [y, m] = ym.split('-');
+  const d = new Date(Number(y), Number(m) - 1);
+  const name = d.toLocaleDateString('pt-BR', { month: 'long' });
+  return name.charAt(0).toUpperCase() + name.slice(1) + ' ' + d.getFullYear();
 }
 function formatTime(t) {
   if (!t) return '—';
@@ -44,7 +53,7 @@ function getMonthOptions() {
   for (let i = 0; i < 12; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    opts.push({ value: v, label: formatMonth(v) });
+    opts.push({ value: v, label: formatMonthPT(v) });
   }
   return opts;
 }
@@ -52,7 +61,7 @@ function getMonthOptions() {
 export default function StudentDetail({ student, profile, onBack }) {
   const now = new Date();
   const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const [month, setMonth] = useState(curMonth);
+  const [filterMonth, setFilterMonth] = useState('all'); // 'all' | 'YYYY-MM'
   const [updating, setUpdating] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -64,20 +73,40 @@ export default function StudentDetail({ student, profile, onBack }) {
 
   const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  const { lessons, loading, error } = useLessonsRealtime({ studentId: student.id, referenceMonth: month });
-  // Fetch ALL lessons (no month filter) for cross-month cycle calculation
-  const { lessons: allLessons } = useLessonsRealtime({ studentId: student.id });
+  // Single hook fetches ALL lessons; filtering is done client-side
+  const { lessons: allLessons, setLessons, loading, error } = useLessonsRealtime({ studentId: student.id });
 
   const sorted = useMemo(() => {
-    return [...(lessons || [])].sort((a, b) => {
+    const base = filterMonth === 'all'
+      ? (allLessons || [])
+      : (allLessons || []).filter(l => {
+          const lm = l.reference_month || (l.class_date ? l.class_date.substring(0, 7) : null);
+          return lm === filterMonth;
+        });
+    return [...base].sort((a, b) => {
       const dateA = a.class_date || '';
       const dateB = b.class_date || '';
-      if (dateA !== dateB) return dateA.localeCompare(dateB);
-      const timeA = a.start_time || '';
-      const timeB = b.start_time || '';
-      return timeA.localeCompare(timeB);
+      if (dateA !== dateB) return dateB.localeCompare(dateA); // newest first
+      return (b.start_time || '').localeCompare(a.start_time || '');
     });
-  }, [lessons]);
+  }, [allLessons, filterMonth]);
+
+  const groupedSorted = useMemo(() => {
+    const items = [];
+    let lastMonth = null;
+    let lessonNum = 0;
+    for (const l of sorted) {
+      const lm = l.reference_month || (l.class_date ? l.class_date.substring(0, 7) : null);
+      if (lm !== lastMonth) {
+        items.push({ type: 'separator', month: lm });
+        lastMonth = lm;
+      }
+      lessonNum++;
+      items.push({ type: 'lesson', lesson: l, num: lessonNum });
+    }
+    return items;
+  }, [sorted]);
+
   const totalMin = sorted.reduce((s, l) => s + (l.duration_minutes || 0), 0);
   const totalH = (totalMin / 60).toFixed(1);
   const presences = sorted.filter(l => !l.is_absent).length;
@@ -88,9 +117,34 @@ export default function StudentDetail({ student, profile, onBack }) {
   const [payDate, setPayDate] = useState('');
   const [savingPay, setSavingPay] = useState(false);
   const [showPayForm, setShowPayForm] = useState(false);
+  const [editingPayDate, setEditingPayDate] = useState(false);
+  const [editPayDateValue, setEditPayDateValue] = useState('');
+  const [savingPayDate, setSavingPayDate] = useState(false);
 
   // Keep in sync if student prop changes
   useEffect(() => { setLastPayDate(student.last_payment_date || null); }, [student.last_payment_date]);
+
+  const confirmPayDateEdit = async () => {
+    if (!editPayDateValue) return;
+    setSavingPayDate(true);
+    try {
+      const { error } = await supabase.from('profiles').update({ last_payment_date: editPayDateValue }).eq('id', student.id);
+      if (error) throw error;
+      setLastPayDate(editPayDateValue);
+      setEditingPayDate(false);
+      const hadSchedules = await generateAllScheduleLessons(student.id, editPayDateValue);
+      if (hadSchedules) {
+        showAlert('Sucesso', 'Pagamento registrado e aulas criadas!', 'success');
+      } else {
+        showAlert('Sucesso', 'Data de pagamento atualizada! Cadastre um horário fixo para criar as aulas automaticamente.', 'info');
+      }
+    } catch (e) {
+      console.error(e);
+      showAlert('Erro', 'Falha ao atualizar a data de pagamento.', 'error');
+    } finally {
+      setSavingPayDate(false);
+    }
+  };
 
   const registerPayment = async () => {
     if (!payDate) return;
@@ -98,21 +152,28 @@ export default function StudentDetail({ student, profile, onBack }) {
     try {
       const { error } = await supabase.from('profiles').update({ last_payment_date: payDate }).eq('id', student.id);
       if (error) throw error;
-      
+
       await supabase.from('payment_history').insert({ student_id: student.id, payment_date: payDate });
-      
+
       setLastPayDate(payDate);
       setPayDate('');
       setShowPayForm(false);
-      
+
       fetchExtras();
-      
+
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('student-updated'));
       }
-    } catch (e) { 
-      console.error('Error updating payment date:', e); 
-      alert('Failed to update payment date.'); 
+
+      const hadSchedules = await generateAllScheduleLessons(student.id, payDate);
+      if (hadSchedules) {
+        showAlert('Sucesso', 'Pagamento registrado e aulas criadas!', 'success');
+      } else {
+        showAlert('Sucesso', 'Data de pagamento atualizada! Cadastre um horário fixo para criar as aulas automaticamente.', 'info');
+      }
+    } catch (e) {
+      console.error('Error updating payment date:', e);
+      showAlert('Erro', 'Falha ao registrar o pagamento.', 'error');
     }
     finally { setSavingPay(false); }
   };
@@ -126,23 +187,35 @@ export default function StudentDetail({ student, profile, onBack }) {
     });
   }, [allLessons]);
 
-  // Count valid lessons with class_date >= last_payment_date
+  // Count realized lessons (end_time set) with class_date >= last_payment_date
   const cycleInfo = useMemo(() => {
     if (!lastPayDate) {
       return { consumedClasses: 0, hasPayment: false, remaining: 0 };
     }
-    const validAfterPay = allSortedByDate.filter(l => (!l.is_absent || l.is_late_cancellation) && !l.is_late_cancellation && l.class_date && l.class_date >= lastPayDate);
-    const consumed = validAfterPay.length;
+    const realized = allSortedByDate.filter(l =>
+      l.class_date && l.class_date >= lastPayDate && (
+        (!l.is_makeup && !l.is_absent && l.end_time) ||
+        (l.is_absent && l.late_notice) ||
+        (l.is_makeup && !l.late_notice && l.end_time)
+      )
+    );
+    const consumed = realized.length;
     return { consumedClasses: consumed, hasPayment: true, remaining: Math.max(0, 4 - consumed) };
   }, [allSortedByDate, lastPayDate]);
 
-  // Build Set of lesson IDs that are "Pago" (first 4 valid after last_payment_date)
+  // Build Set of lesson IDs that are "Pago" (first 4 realized after last_payment_date)
   const paidLessonIds = useMemo(() => {
     const ids = new Set();
     if (!lastPayDate) return ids;
-    const validAfterPay = allSortedByDate.filter(l => (!l.is_absent || l.is_late_cancellation) && !l.is_late_cancellation && l.class_date && l.class_date >= lastPayDate);
-    for (let i = 0; i < Math.min(4, validAfterPay.length); i++) {
-      ids.add(validAfterPay[i].id);
+    const realized = allSortedByDate.filter(l =>
+      l.class_date && l.class_date >= lastPayDate && (
+        (!l.is_makeup && !l.is_absent && l.end_time) ||
+        (l.is_absent && l.late_notice) ||
+        (l.is_makeup && !l.late_notice && l.end_time)
+      )
+    );
+    for (let i = 0; i < Math.min(4, realized.length); i++) {
+      ids.add(realized[i].id);
     }
     return ids;
   }, [allSortedByDate, lastPayDate]);
@@ -185,9 +258,9 @@ export default function StudentDetail({ student, profile, onBack }) {
     setSavingRes(true);
 
     try {
-      const { error: lessonError } = await supabase.from('lessons').insert({
+      const { data: newLesson, error: lessonError } = await supabase.from('lessons').insert({
         student_id: student.id,
-        reference_month: month,
+        reference_month: resForm.new_date ? resForm.new_date.substring(0, 7) : curMonth,
         title: resForm.title || 'Aula Reagendada',
         class_date: resForm.new_date,
         start_time: toTime(resForm.new_start_time),
@@ -195,9 +268,10 @@ export default function StudentDetail({ student, profile, onBack }) {
         duration_minutes: 60,
         is_absent: resForm.is_late,
         is_late_cancellation: resForm.is_late
-      });
+      }).select().single();
 
       if (lessonError) throw lessonError;
+      setLessons(prev => [newLesson, ...prev]);
 
       await supabase.from('rescheduled_lessons').insert({
         student_id: student.id,
@@ -219,9 +293,12 @@ export default function StudentDetail({ student, profile, onBack }) {
 
   const update = useCallback(async (id, data) => {
     setUpdating(`${Object.keys(data)[0]}_${id}`);
-    try { await supabase.from('lessons').update(data).eq('id', id); } catch (e) { console.error(e); }
+    try {
+      await supabase.from('lessons').update(data).eq('id', id);
+      setLessons(prev => prev.map(l => l.id === id ? { ...l, ...data } : l));
+    } catch (e) { console.error(e); }
     finally { setUpdating(null); }
-  }, []);
+  }, [setLessons]);
 
   const toggleAbsent = (id, cur) => update(id, { is_absent: !cur, ...(cur ? { makeup_class_date: null } : {}) });
   const toggleCheckin = (id, field, cur) => update(id, { [field]: !cur });
@@ -230,28 +307,35 @@ export default function StudentDetail({ student, profile, onBack }) {
     e.preventDefault();
     setSaving(true);
     try {
-      await supabase.from('lessons').insert({
-        student_id: student.id, reference_month: month,
+      const { data, error: insertError } = await supabase.from('lessons').insert({
+        student_id: student.id, reference_month: filterMonth !== 'all' ? filterMonth : curMonth,
         title: form.title || `Lesson ${sorted.length + 1}`,
         start_time: toTime(form.start_time), end_time: toTime(form.end_time),
         duration_minutes: Number(form.duration_minutes) || 60,
         is_absent: form.is_absent, makeup_class_date: form.makeup_class_date || null,
         payment_status: 'pending', professor_checkin: false, student_checkin: false,
-      });
+      }).select().single();
+      if (insertError) throw insertError;
+      setLessons(prev => [data, ...prev]);
       setForm({ title: '', start_time: '', end_time: '', duration_minutes: 60, is_absent: false, makeup_class_date: '', notes: '' });
       setShowForm(false);
     } catch (err) { console.error(err); alert('Error adding lesson.'); }
     finally { setSaving(false); }
   };
 
-  const deleteLesson = async (id) => {
-    if (window.confirm('Tem certeza que deseja excluir esta aula? Esta ação não pode ser desfeita.')) {
-      try {
-        await supabase.from('lessons').delete().eq('id', id);
-      } catch (e) {
-        console.error(e);
+  const deleteLesson = (id) => {
+    showConfirm(
+      'Excluir Aula',
+      'Tem certeza que deseja excluir esta aula? Esta ação não pode ser desfeita.',
+      async () => {
+        try {
+          await supabase.from('lessons').delete().eq('id', id);
+          setLessons(prev => prev.filter(l => l.id !== id));
+        } catch (e) {
+          console.error(e);
+        }
       }
-    }
+    );
   };
 
   return (
@@ -272,13 +356,14 @@ export default function StudentDetail({ student, profile, onBack }) {
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--text-main)]">{student.full_name}</h1>
-              <p className="text-[var(--text-muted)] text-sm">{formatMonth(month)}</p>
+              <p className="text-[var(--text-muted)] text-sm">{filterMonth === 'all' ? 'Todos os meses' : formatMonthPT(filterMonth)}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <select value={month} onChange={e => setMonth(e.target.value)}
+              <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)}
                 className="appearance-none bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-semibold px-5 py-3 pr-10 rounded-2xl outline-none focus:border-[#5A77DF] transition-all shadow-sm cursor-pointer">
+                <option value="all">Todos os meses</option>
                 {monthOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
               <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--text-lighter)] pointer-events-none" />
@@ -319,18 +404,41 @@ export default function StudentDetail({ student, profile, onBack }) {
               {/* Payment / Package Status */}
               <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cycleInfo.remaining > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}><Package size={16} /></div>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cycleInfo.remaining === 0 ? 'bg-red-500/10 text-red-400' : cycleInfo.remaining === 1 ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}><Package size={16} /></div>
                   <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Pacote</span>
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <p className={`text-3xl font-bold tracking-tight ${cycleInfo.remaining > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{cycleInfo.remaining}</p>
+                  <p className={`text-3xl font-bold tracking-tight ${cycleInfo.remaining === 0 ? 'text-red-400' : cycleInfo.remaining === 1 ? 'text-amber-400' : 'text-emerald-400'}`}>{cycleInfo.remaining}</p>
                   <span className="text-base text-[var(--text-lighter)]">/4</span>
                 </div>
-                <p className="text-xs text-[var(--text-muted)] mt-1">
-                  {cycleInfo.hasPayment
-                    ? `${cycleInfo.consumedClasses} used · Pago em ${new Date(lastPayDate + 'T00:00').toLocaleDateString('pt-BR')}`
-                    : 'Nenhum pagamento registrado'}
-                </p>
+                <div className="text-xs text-[var(--text-muted)] mt-1">
+                  {cycleInfo.hasPayment && <span className="block mb-0.5">{cycleInfo.consumedClasses} realizada{cycleInfo.consumedClasses !== 1 ? 's' : ''}</span>}
+                  {editingPayDate && profile?.role === 'teacher' ? (
+                    <span className="flex items-center gap-1 mt-1">
+                      <input type="date" value={editPayDateValue} onChange={e => setEditPayDateValue(e.target.value)}
+                        className="flex-1 min-w-0 px-2 py-0.5 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg text-[var(--text-main)] text-xs outline-none focus:border-[#5A77DF] transition-all" />
+                      <button onClick={confirmPayDateEdit} disabled={savingPayDate || !editPayDateValue}
+                        className="shrink-0 p-0.5 text-[#5A77DF] hover:text-[#4a63be] disabled:opacity-50 transition-colors">
+                        {savingPayDate ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                      </button>
+                      <button onClick={() => setEditingPayDate(false)} className="shrink-0 p-0.5 text-[var(--text-lighter)] hover:text-red-400 transition-colors">
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      {cycleInfo.hasPayment
+                        ? `Pago em ${new Date(lastPayDate + 'T00:00').toLocaleDateString('pt-BR')}`
+                        : 'Sem pagamento registrado'}
+                      {profile?.role === 'teacher' && (
+                        <button onClick={() => { setEditPayDateValue(lastPayDate || ''); setEditingPayDate(true); }}
+                          className="text-[var(--text-lighter)] hover:text-[#5A77DF] transition-colors">
+                          <Pencil size={10} />
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </div>
               </div>
               {/* Attendance */}
               <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl p-5 shadow-sm">
@@ -348,25 +456,25 @@ export default function StudentDetail({ student, profile, onBack }) {
             </div>
 
             {/* Payment Cycle Alert */}
-            {cycleInfo.consumedClasses === 3 && cycleInfo.hasPayment && (
+            {cycleInfo.remaining === 1 && cycleInfo.hasPayment && (
               <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl px-5 py-4 mb-6 animate-in fade-in duration-300">
                 <div className="w-9 h-9 bg-amber-500/15 text-amber-400 rounded-xl flex items-center justify-center shrink-0">
                   <AlertTriangle size={18} />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-amber-400 tracking-tight">Aviso: Ainda falta 1 aula disponível neste pacote.</p>
-                  <p className="text-xs text-[var(--text-muted)] mt-0.5">3 de 4 aulas já foram consumidas</p>
+                  <p className="text-sm font-bold text-amber-400 tracking-tight">4ª Aula: Última aula do pacote.</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">3 aulas realizadas — 1 restante</p>
                 </div>
               </div>
             )}
-            {(cycleInfo.consumedClasses >= 4 || !cycleInfo.hasPayment) && allSortedByDate.length > 0 && (
+            {(cycleInfo.remaining === 0 || !cycleInfo.hasPayment) && allSortedByDate.length > 0 && (
               <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-2xl px-5 py-4 mb-6 animate-in fade-in duration-300">
                 <div className="w-9 h-9 bg-red-500/15 text-red-400 rounded-xl flex items-center justify-center shrink-0">
                   <RefreshCw size={18} />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-red-400 tracking-tight">Pacote encerrado: Aguardando renovação/pagamento.</p>
-                  <p className="text-xs text-[var(--text-muted)] mt-0.5">{cycleInfo.hasPayment ? `4 aulas concluídas desde o último pagamento` : 'Nenhum pagamento registrado'}</p>
+                  <p className="text-sm font-bold text-red-400 tracking-tight">Renovar: Pacote encerrado.</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">{cycleInfo.hasPayment ? '4 aulas concluídas desde o último pagamento' : 'Nenhum pagamento registrado'}</p>
                 </div>
               </div>
             )}
@@ -430,13 +538,23 @@ export default function StudentDetail({ student, profile, onBack }) {
               <>
                 {sorted.length === 0 ? (
                   <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl shadow-sm overflow-hidden mb-6">
-                    <div className="px-5 py-16 text-center text-[var(--text-lighter)] text-sm italic">No lessons for {formatMonth(month)}</div>
+                    <div className="px-5 py-16 text-center text-[var(--text-lighter)] text-sm italic">
+                    {filterMonth === 'all' ? 'Nenhuma aula cadastrada.' : `Nenhuma aula em ${formatMonthPT(filterMonth)}.`}
+                  </div>
                   </div>
                 ) : (
                   <>
                     {/* Mobile: Card List */}
                     <div className="md:hidden flex flex-col gap-3 mb-6">
-                      {sorted.map((l, i) => {
+                      {groupedSorted.map((item) => {
+                        if (item.type === 'separator') {
+                          return (
+                            <div key={`sep-${item.month}`} className="px-2 py-1 text-xs font-bold tracking-widest text-[var(--text-lighter)] uppercase">
+                              {formatMonthPT(item.month)}
+                            </div>
+                          );
+                        }
+                        const l = item.lesson;
                         const isMakeup = l.is_makeup || l.title?.toLowerCase().includes('reposição');
                         return (
                           <div key={l.id} className={`border rounded-2xl p-4 shadow-sm ${
@@ -449,7 +567,7 @@ export default function StudentDetail({ student, profile, onBack }) {
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex-1 min-w-0 pr-2">
                                 <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                  <span className="text-[10px] font-bold text-[var(--text-lighter)] uppercase">#{i + 1}</span>
+                                  <span className="text-[10px] font-bold text-[var(--text-lighter)] uppercase">#{item.num}</span>
                                   <span className="text-[10px] text-[var(--text-muted)]">
                                     {l.class_date ? new Date(l.class_date + 'T00:00').toLocaleDateString('pt-BR') : '—'}
                                   </span>
@@ -457,7 +575,10 @@ export default function StudentDetail({ student, profile, onBack }) {
                                 <p className="font-bold text-sm text-[var(--text-main)] truncate">{l.title || formatDate(l.start_time)}</p>
                                 {(isMakeup || l.is_late_cancellation) && (
                                   <div className="flex flex-wrap gap-1 mt-1">
-                                    {isMakeup && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 uppercase tracking-wider">Reposição</span>}
+                                    {isMakeup && (l.end_time
+                                      ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase tracking-wider">✅ Reposição Feita</span>
+                                      : <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 uppercase tracking-wider">Reposição</span>
+                                    )}
                                     {l.is_late_cancellation && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20 uppercase tracking-wider">Aviso Tardio</span>}
                                   </div>
                                 )}
@@ -539,18 +660,32 @@ export default function StudentDetail({ student, profile, onBack }) {
                             </tr>
                           </thead>
                           <tbody>
-                            {sorted.map((l, i) => {
+                            {groupedSorted.map((item) => {
+                              if (item.type === 'separator') {
+                                return (
+                                  <tr key={`sep-${item.month}`}>
+                                    <td colSpan={profile?.role === 'teacher' ? 11 : 10}
+                                      className="px-5 py-2 text-[10px] font-bold tracking-widest text-[var(--text-lighter)] uppercase bg-[var(--bg-input)] border-b border-[var(--border-color)]">
+                                      {formatMonthPT(item.month)}
+                                    </td>
+                                  </tr>
+                                );
+                              }
+                              const l = item.lesson;
                               const isMakeup = l.is_makeup || l.title?.toLowerCase().includes('reposição');
                               return (
                                 <tr key={l.id} className={`border-b last:border-b-0 hover:bg-[var(--bg-input)] transition-colors ${l.is_late_cancellation ? 'bg-red-500/10 border-red-500/30' : isMakeup ? 'bg-yellow-500/10 border-yellow-500/30' : !l.is_absent ? 'bg-emerald-500/10 border-emerald-500/30' : 'border-[var(--border-color)]'} ${l.is_absent && !l.is_late_cancellation ? 'opacity-60' : ''}`}>
-                                  <td className="px-5 py-3.5 text-[var(--text-lighter)] font-bold">{i + 1}</td>
+                                  <td className="px-5 py-3.5 text-[var(--text-lighter)] font-bold">{item.num}</td>
                                   <td className="px-3 py-3.5 text-[var(--text-main)] whitespace-nowrap">{l.class_date ? new Date(l.class_date + 'T00:00').toLocaleDateString('pt-BR') : '—'}</td>
                                   <td className="px-3 py-3.5 font-semibold text-[var(--text-main)] whitespace-nowrap">
                                     <div className="flex flex-col gap-1">
                                       <span>{l.title || formatDate(l.start_time)}</span>
                                       {(isMakeup || l.is_late_cancellation) && (
                                         <div className="flex items-center gap-1">
-                                          {isMakeup && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 uppercase tracking-wider">Reposição</span>}
+                                          {isMakeup && (l.end_time
+                                            ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase tracking-wider">✅ Reposição Feita</span>
+                                            : <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 uppercase tracking-wider">Reposição</span>
+                                          )}
                                           {l.is_late_cancellation && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20 uppercase tracking-wider">Aviso Tardio</span>}
                                         </div>
                                       )}
@@ -609,6 +744,7 @@ export default function StudentDetail({ student, profile, onBack }) {
                               );
                             })}
                           </tbody>
+
                         </table>
                       </div>
                     </div>

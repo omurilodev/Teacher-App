@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
-import { BookOpen, ArrowLeft, Plus, Pencil, Trash2, PanelRightClose, PanelRightOpen, ChevronDown } from 'lucide-react'
+import { BookOpen, ArrowLeft, Plus, Pencil, Trash2, PanelRightClose, PanelRightOpen, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+
+const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 // Funções utilitárias para o dropdown de meses
 function formatMonth(ym) {
@@ -29,20 +31,43 @@ export default function LessonList({
   selectLesson, setShowDeleteModal, handleNewLesson,
 }) {
   
-  // Estado para controlar o mês atual filtrado
+  // Estado para controlar o mês/semana filtrado
   const now = new Date();
   const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const [viewMode, setViewMode] = useState('month'); // 'month' | 'week'
   const [month, setMonth] = useState(curMonth);
+  const [weekOffset, setWeekOffset] = useState(0);
   const monthOpts = useMemo(() => getMonthOptions(), []);
 
-  // Lógica que filtra as aulas baseada no mês selecionado
+  const weekRange = useMemo(() => {
+    const base = new Date();
+    base.setDate(base.getDate() + weekOffset * 7);
+    const dow = base.getDay();
+    const monday = new Date(base);
+    monday.setDate(base.getDate() - (dow === 0 ? 6 : dow - 1));
+    monday.setHours(0, 0, 0, 0);
+    const saturday = new Date(monday);
+    saturday.setDate(monday.getDate() + 5);
+    const pad = n => String(n).padStart(2, '0');
+    const toISO = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const monLabel = `${monday.getDate()} ${MONTHS_SHORT[monday.getMonth()]}`;
+    const satLabel = `${saturday.getDate()} ${MONTHS_SHORT[saturday.getMonth()]} ${saturday.getFullYear()}`;
+    return { mondayISO: toISO(monday), saturdayISO: toISO(saturday), label: `${monLabel} — ${satLabel}` };
+  }, [weekOffset]);
+
+  // Lógica que filtra as aulas baseada no modo selecionado
   const filteredLessons = useMemo(() => {
+    if (viewMode === 'week') {
+      return (lessons || []).filter(l =>
+        l.class_date && l.class_date >= weekRange.mondayISO && l.class_date <= weekRange.saturdayISO
+      );
+    }
     return (lessons || []).filter(l => {
       // Usa o reference_month se existir, senão pega do class_date
       const lessonMonth = l.reference_month || (l.class_date ? l.class_date.substring(0, 7) : null);
       return lessonMonth === month;
     });
-  }, [lessons, month]);
+  }, [lessons, viewMode, month, weekRange]);
 
   return (
     <div className={`absolute lg:relative z-40 h-full top-0 left-0 lg:left-auto ${isLessonListOpen ? 'translate-x-0 w-[280px] lg:w-[320px]' : '-translate-x-full lg:translate-x-0 w-[280px] lg:w-16'} transition-transform duration-300 ease-in-out border-r border-[var(--border-color)] flex flex-col bg-[var(--bg-card)] shrink-0`}>
@@ -70,14 +95,28 @@ export default function LessonList({
               </p>
             </div>
 
-            {/* Dropdown de Filtro de Mês */}
-            <div className="relative">
-              <select value={month} onChange={e => setMonth(e.target.value)}
-                className="w-full appearance-none bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-semibold px-4 py-2.5 pr-10 rounded-xl outline-none focus:border-[#5A77DF] transition-all shadow-sm cursor-pointer">
-                {monthOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-              <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--text-lighter)] pointer-events-none" />
+            {/* Seletor de modo: Mês / Semana */}
+            <div className="flex rounded-xl overflow-hidden border border-[var(--border-color)] text-[11px] font-bold">
+              <button onClick={() => setViewMode('month')} className={`flex-1 py-2 transition-all ${viewMode === 'month' ? 'bg-[#5A77DF] text-white' : 'bg-[var(--bg-input)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}>Mês</button>
+              <button onClick={() => setViewMode('week')} className={`flex-1 py-2 transition-all ${viewMode === 'week' ? 'bg-[#5A77DF] text-white' : 'bg-[var(--bg-input)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}>Semana</button>
             </div>
+
+            {viewMode === 'month' ? (
+              <div className="relative">
+                <select value={month} onChange={e => setMonth(e.target.value)}
+                  className="w-full appearance-none bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-semibold px-4 py-2.5 pr-10 rounded-xl outline-none focus:border-[#5A77DF] transition-all shadow-sm cursor-pointer">
+                  {monthOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--text-lighter)] pointer-events-none" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <button onClick={() => setWeekOffset(w => w - 1)} className="p-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[#5A77DF] transition-colors shrink-0"><ChevronLeft size={14} /></button>
+                <span className="flex-1 text-center text-[10px] font-semibold text-[var(--text-main)] leading-tight px-0.5">{weekRange.label}</span>
+                <button onClick={() => setWeekOffset(w => w + 1)} className="p-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[#5A77DF] transition-colors shrink-0"><ChevronRight size={14} /></button>
+                <button onClick={() => setWeekOffset(0)} className="p-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-[10px] font-bold text-[var(--text-muted)] hover:text-[#5A77DF] transition-colors shrink-0">Hoje</button>
+              </div>
+            )}
 
             {profile?.role === 'teacher' && (
               <button onClick={handleNewLesson} className="w-full bg-[#5A77DF] text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-[#4a63be] shadow-md shadow-[#5A77DF]/20 active:scale-95 transition-all text-sm">
@@ -89,7 +128,7 @@ export default function LessonList({
           <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2 relative z-10">
             {filteredLessons.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-xs text-[var(--text-lighter)] italic">Nenhuma aula neste mês.</p>
+                <p className="text-xs text-[var(--text-lighter)] italic">{viewMode === 'week' ? 'Nenhuma aula nesta semana.' : 'Nenhuma aula neste mês.'}</p>
               </div>
             ) : (
               filteredLessons.map((l) => (
@@ -106,11 +145,21 @@ export default function LessonList({
                   </div>
                   <p className={`font-bold text-sm text-[var(--text-main)] truncate ${profile?.role === 'teacher' ? 'group-hover:pr-6' : ''} ${unreadByLesson[l.id] && selectedLesson?.id !== l.id ? 'pl-2' : ''}`}>{l.title}</p>
                   
-                  {/* Status de Aviso Tardio / Reposição */}
-                  {(l.late_notice || l.is_makeup) && (
+                  {/* Badges de status */}
+                  {(l.is_absent || l.is_makeup || l.late_notice) && (
                     <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                      {l.is_makeup && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">Reposição</span>}
-                      {l.late_notice && profile?.role === 'teacher' && (
+                      {l.is_absent && (
+                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20">Falta</span>
+                      )}
+                      {l.is_makeup && (
+                        l.end_time
+                          ? <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">✅ Reposição Feita</span>
+                          : <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">Reposição</span>
+                      )}
+                      {l.is_makeup && l.late_notice && (
+                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">Aviso Tardio</span>
+                      )}
+                      {l.late_notice && !l.is_absent && profile?.role === 'teacher' && (
                         <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${l.extra_fee_paid ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
                           {l.extra_fee_paid ? 'Taxa Paga' : 'Taxa Pendente'}
                         </span>

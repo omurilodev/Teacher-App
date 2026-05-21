@@ -79,11 +79,31 @@ function App() {
     }
   }, [isMobileChatOpen, isChatOpen, selectedLesson, markMessagesAsRead])
 
+  // Auto-mark absent: journal lessons that passed with no checkin and no end_time
+  useEffect(() => {
+    if (!lessons || lessons.length === 0) return;
+    const today = new Date().toISOString().split('T')[0];
+    const toMark = lessons.filter(l =>
+      l.class_date && l.class_date < today &&
+      !l.student_checkin && !l.professor_checkin &&
+      !l.end_time && !l.is_absent
+    );
+    if (toMark.length === 0) return;
+    const ids = toMark.map(l => l.id);
+    supabase.from('lessons').update({ is_absent: true }).in('id', ids)
+      .then(({ error }) => {
+        if (!error) setLessons(prev => prev.map(l => ids.includes(l.id) ? { ...l, is_absent: true } : l));
+      });
+  }, [lessons, setLessons]);
+
   const selectLesson = useCallback(async (lesson, mode = 'view') => {
     if (!lesson || !lesson.id) return
 
     setIsMobileMenuOpen(false)
-    if (window.innerWidth < 1024) setIsLessonListOpen(false)
+    if (window.innerWidth < 1024) {
+      setIsLessonListOpen(false)
+      setIsMobileChatOpen(false)
+    }
 
     setIsCreating(false)
     setMessages([])

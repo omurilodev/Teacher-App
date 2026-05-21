@@ -8,7 +8,9 @@
       "Bash(Get-ChildItem -Recurse -Force)",
       "Bash(Select-Object FullName)",
       "Bash(git stash *)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(node_modules/.bin/eslint src/components/StudentDetail.jsx --no-eslintrc --rule '{\"no-undef\": \"error\", \"no-unused-vars\": \"warn\"}')",
+      "Bash(node -e ' *)"
     ]
   }
 }
