@@ -13,7 +13,7 @@ export default function LessonView({
 }) {
   return (
     <div className="flex flex-1 overflow-hidden relative">
-      <div className="flex-1 p-6 md:p-12 overflow-y-auto relative z-10 pt-8 lg:pt-12">
+      <div className="flex-1 p-4 md:p-12 overflow-y-auto relative z-10 pt-6 lg:pt-12">
         <div className="max-w-4xl mx-auto pb-10">
 
           {profile?.role === 'teacher' && !selectedLesson.end_time && (
@@ -59,9 +59,9 @@ export default function LessonView({
             </div>
           )}
 
-          <h2 className="text-3xl md:text-5xl font-bold text-[var(--text-main)] mb-8 md:mb-10 tracking-tight leading-tight">{selectedLesson.title}</h2>
+          <h2 className="text-2xl md:text-5xl font-bold text-[var(--text-main)] mb-6 md:mb-10 tracking-tight leading-tight">{selectedLesson.title}</h2>
 
-          <div className="w-full min-h-[500px] h-[60vh] flex flex-col mb-8">
+          <div className="w-full min-h-[250px] h-[50vh] md:min-h-[500px] md:h-[60vh] flex flex-col mb-8">
             <CollaborativeEditor
               lessonId={selectedLesson.id}
               initialContent={selectedLesson?.content || ''}

@@ -425,104 +425,196 @@ export default function StudentDetail({ student, profile, onBack }) {
               </div>
             )}
 
-            {/* Lessons Table */}
+            {/* Lessons Section */}
             {!loading && (
-              <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl shadow-sm overflow-hidden mb-6">
+              <>
                 {sorted.length === 0 ? (
-                  <div className="px-5 py-16 text-center text-[var(--text-lighter)] text-sm italic">No lessons for {formatMonth(month)}</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest border-b border-[var(--border-color)]">
-                          <th className="px-5 py-3 text-left">#</th>
-                          <th className="px-3 py-3 text-left">Date</th>
-                          <th className="px-3 py-3 text-left">Lesson</th>
-                          <th className="px-3 py-3 text-left">Time</th>
-                          <th className="px-3 py-3 text-center">Duration</th>
-                          <th className="px-3 py-3 text-center">Status</th>
-                          <th className="px-3 py-3 text-center">Absent</th>
-                          <th className="px-3 py-3 text-center">Makeup</th>
-                          <th className="px-3 py-3 text-center">Prof ✓</th>
-                          <th className="px-3 py-3 text-center">Student ✓</th>
-                          {profile?.role === 'teacher' && <th className="px-3 py-3 text-center w-10"></th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sorted.map((l, i) => {
-                          const isMakeup = l.is_makeup || l.title?.toLowerCase().includes('reposição');
-                          return (
-                            <tr key={l.id} className={`border-b last:border-b-0 hover:bg-[var(--bg-input)] transition-colors ${l.is_late_cancellation ? 'bg-red-500/10 border-red-500/30' : isMakeup ? 'bg-yellow-500/10 border-yellow-500/30' : !l.is_absent ? 'bg-emerald-500/10 border-emerald-500/30' : 'border-[var(--border-color)]'} ${l.is_absent && !l.is_late_cancellation ? 'opacity-60' : ''}`}>
-                              <td className="px-5 py-3.5 text-[var(--text-lighter)] font-bold">{i + 1}</td>
-                              <td className="px-3 py-3.5 text-[var(--text-main)] whitespace-nowrap">{l.class_date ? new Date(l.class_date + 'T00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                              <td className="px-3 py-3.5 font-semibold text-[var(--text-main)] whitespace-nowrap">
-                                <div className="flex flex-col gap-1">
-                                  <span>{l.title || formatDate(l.start_time)}</span>
-                                  {(isMakeup || l.is_late_cancellation) && (
-                                    <div className="flex items-center gap-1">
-                                      {isMakeup && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 uppercase tracking-wider">Reposição</span>}
-                                      {l.is_late_cancellation && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20 uppercase tracking-wider">Aviso Tardio</span>}
-                                    </div>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-3 py-3.5 text-[var(--text-muted)] whitespace-nowrap">{formatTime(l.start_time)} – {formatTime(l.end_time)}</td>
-                              <td className="px-3 py-3.5 text-center"><span className="font-bold text-[var(--text-main)]">{l.duration_minutes || 0}</span><span className="text-[var(--text-lighter)] text-xs ml-0.5">min</span></td>
-                              <td className="px-3 py-3.5 text-center">
-                                {(l.is_late_cancellation || l.late_notice) && isMakeup ? (
-                                  <button onClick={() => update(l.id, { extra_fee_paid: !l.extra_fee_paid })} disabled={updating === `extra_fee_paid_${l.id}`} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${l.extra_fee_paid ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'}`}>
-                                    {updating === `extra_fee_paid_${l.id}` ? <Loader2 size={12} className="animate-spin" /> : (l.extra_fee_paid ? <><CheckCircle2 size={12} /> Taxa Paga</> : 'Taxa Pendente')}
-                                  </button>
-                                ) : (!lastPayDate || (l.class_date && l.class_date >= lastPayDate && !paidLessonIds.has(l.id))) && !l.is_absent ? (
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase tracking-wider">
-                                    Pendente
-                                  </span>
-                                ) : !l.is_absent ? (
-                                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                    <CheckCircle2 size={12} /> Pago
-                                  </span>
-                                ) : (
-                                  <span className="text-[var(--text-lighter)] text-xs">—</span>
-                                )}
-                              </td>
-                              <td className="px-3 py-3.5 text-center">
-                                <button onClick={() => toggleAbsent(l.id, l.is_absent)} disabled={updating === `is_absent_${l.id}`}
-                                  className={`w-8 h-8 rounded-lg flex items-center justify-center mx-auto transition-all hover:scale-110 active:scale-95 border ${l.is_absent ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-[var(--bg-input)] text-[var(--text-lighter)] border-[var(--border-color)] hover:text-emerald-400'}`}>
-                                  {updating === `is_absent_${l.id}` ? <Loader2 size={14} className="animate-spin" /> : l.is_absent ? <CalendarX2 size={14} /> : <CalendarCheck size={14} />}
-                                </button>
-                              </td>
-                              <td className="px-3 py-3.5 text-center">
-                                {l.is_absent ? <input type="date" value={l.makeup_class_date || ''} onChange={e => update(l.id, { makeup_class_date: e.target.value || null })}
-                                  className="bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-main)] text-xs px-2 py-1.5 rounded-lg outline-none focus:border-[#5A77DF] transition-all w-32" />
-                                : <span className="text-[var(--text-lighter)] text-xs">—</span>}
-                              </td>
-                              <td className="px-3 py-3.5 text-center">
-                                <button onClick={() => toggleCheckin(l.id, 'professor_checkin', l.professor_checkin)} disabled={updating === `professor_checkin_${l.id}`}
-                                  className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-all hover:scale-110 active:scale-95 ${l.professor_checkin ? 'bg-[#5A77DF] text-white shadow-md shadow-[#5A77DF]/30' : 'bg-[var(--bg-input)] text-[var(--text-lighter)] border border-[var(--border-color)]'}`}>
-                                  {updating === `professor_checkin_${l.id}` ? <Loader2 size={14} className="animate-spin" /> : l.professor_checkin ? <CheckCircle2 size={14} /> : <UserCheck size={14} />}
-                                </button>
-                              </td>
-                              <td className="px-3 py-3.5 text-center">
-                                <button onClick={() => toggleCheckin(l.id, 'student_checkin', l.student_checkin)} disabled={updating === `student_checkin_${l.id}`}
-                                  className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-all hover:scale-110 active:scale-95 ${l.student_checkin ? 'bg-[#5A77DF] text-white shadow-md shadow-[#5A77DF]/30' : 'bg-[var(--bg-input)] text-[var(--text-lighter)] border border-[var(--border-color)]'}`}>
-                                  {updating === `student_checkin_${l.id}` ? <Loader2 size={14} className="animate-spin" /> : l.student_checkin ? <CheckCircle2 size={14} /> : <UserCheck size={14} />}
-                                </button>
-                              </td>
-                              {profile?.role === 'teacher' && (
-                                <td className="px-3 py-3.5 text-center">
-                                  <button onClick={() => deleteLesson(l.id)} className="w-8 h-8 rounded-lg flex items-center justify-center mx-auto text-[var(--text-lighter)] hover:text-red-500 hover:bg-red-500/10 transition-all">
-                                    <Trash2 size={14} />
-                                  </button>
-                                </td>
-                              )}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl shadow-sm overflow-hidden mb-6">
+                    <div className="px-5 py-16 text-center text-[var(--text-lighter)] text-sm italic">No lessons for {formatMonth(month)}</div>
                   </div>
+                ) : (
+                  <>
+                    {/* Mobile: Card List */}
+                    <div className="md:hidden flex flex-col gap-3 mb-6">
+                      {sorted.map((l, i) => {
+                        const isMakeup = l.is_makeup || l.title?.toLowerCase().includes('reposição');
+                        return (
+                          <div key={l.id} className={`border rounded-2xl p-4 shadow-sm ${
+                            l.is_late_cancellation ? 'bg-red-500/5 border-red-500/20' :
+                            isMakeup ? 'bg-yellow-500/5 border-yellow-500/20' :
+                            !l.is_absent ? 'bg-emerald-500/5 border-emerald-500/20' :
+                            'bg-[var(--bg-card)] border-[var(--border-color)]'
+                          } ${l.is_absent && !l.is_late_cancellation ? 'opacity-60' : ''}`}>
+                            {/* Header row */}
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0 pr-2">
+                                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                  <span className="text-[10px] font-bold text-[var(--text-lighter)] uppercase">#{i + 1}</span>
+                                  <span className="text-[10px] text-[var(--text-muted)]">
+                                    {l.class_date ? new Date(l.class_date + 'T00:00').toLocaleDateString('pt-BR') : '—'}
+                                  </span>
+                                </div>
+                                <p className="font-bold text-sm text-[var(--text-main)] truncate">{l.title || formatDate(l.start_time)}</p>
+                                {(isMakeup || l.is_late_cancellation) && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {isMakeup && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 uppercase tracking-wider">Reposição</span>}
+                                    {l.is_late_cancellation && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20 uppercase tracking-wider">Aviso Tardio</span>}
+                                  </div>
+                                )}
+                              </div>
+                              {profile?.role === 'teacher' && (
+                                <button onClick={() => deleteLesson(l.id)} className="p-1.5 rounded-lg text-[var(--text-lighter)] hover:text-red-500 hover:bg-red-500/10 transition-all shrink-0">
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Time + duration + payment status */}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-3">
+                              <span className="text-xs text-[var(--text-muted)]">{formatTime(l.start_time)} – {formatTime(l.end_time)}</span>
+                              <span className="text-xs font-bold text-[var(--text-main)]">{l.duration_minutes || 0} min</span>
+                              {(l.is_late_cancellation || l.late_notice) && isMakeup ? (
+                                <button onClick={() => update(l.id, { extra_fee_paid: !l.extra_fee_paid })} disabled={updating === `extra_fee_paid_${l.id}`}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase border transition-all ${l.extra_fee_paid ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'}`}>
+                                  {updating === `extra_fee_paid_${l.id}` ? <Loader2 size={10} className="animate-spin" /> : (l.extra_fee_paid ? <><CheckCircle2 size={10} /> Taxa Paga</> : 'Taxa Pendente')}
+                                </button>
+                              ) : (!lastPayDate || (l.class_date && l.class_date >= lastPayDate && !paidLessonIds.has(l.id))) && !l.is_absent ? (
+                                <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase">Pendente</span>
+                              ) : !l.is_absent ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  <CheckCircle2 size={10} /> Pago
+                                </span>
+                              ) : null}
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <button onClick={() => toggleAbsent(l.id, l.is_absent)} disabled={updating === `is_absent_${l.id}`}
+                                className={`h-9 px-3 rounded-xl flex items-center gap-1.5 text-xs font-bold border transition-all active:scale-95 ${l.is_absent ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-[var(--bg-input)] text-[var(--text-muted)] border-[var(--border-color)]'}`}>
+                                {updating === `is_absent_${l.id}` ? <Loader2 size={12} className="animate-spin" /> : l.is_absent ? <CalendarX2 size={13} /> : <CalendarCheck size={13} />}
+                                {l.is_absent ? 'Falta' : 'Presente'}
+                              </button>
+                              <button onClick={() => toggleCheckin(l.id, 'professor_checkin', l.professor_checkin)} disabled={updating === `professor_checkin_${l.id}`}
+                                title="Professor checkin"
+                                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 ${l.professor_checkin ? 'bg-[#5A77DF] text-white shadow-sm shadow-[#5A77DF]/30' : 'bg-[var(--bg-input)] text-[var(--text-lighter)] border border-[var(--border-color)]'}`}>
+                                {updating === `professor_checkin_${l.id}` ? <Loader2 size={13} className="animate-spin" /> : l.professor_checkin ? <CheckCircle2 size={13} /> : <UserCheck size={13} />}
+                              </button>
+                              <button onClick={() => toggleCheckin(l.id, 'student_checkin', l.student_checkin)} disabled={updating === `student_checkin_${l.id}`}
+                                title="Student checkin"
+                                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 ${l.student_checkin ? 'bg-[#5A77DF] text-white shadow-sm shadow-[#5A77DF]/30' : 'bg-[var(--bg-input)] text-[var(--text-lighter)] border border-[var(--border-color)]'}`}>
+                                {updating === `student_checkin_${l.id}` ? <Loader2 size={13} className="animate-spin" /> : l.student_checkin ? <CheckCircle2 size={13} /> : <UserCheck size={13} />}
+                              </button>
+                            </div>
+
+                            {/* Makeup date if absent */}
+                            {l.is_absent && (
+                              <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
+                                <label className="text-[10px] font-bold text-[var(--text-lighter)] uppercase tracking-widest mb-1 block">Data de Reposição</label>
+                                <input type="date" value={l.makeup_class_date || ''} onChange={e => update(l.id, { makeup_class_date: e.target.value || null })}
+                                  className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-main)] text-sm px-3 py-2.5 rounded-xl outline-none focus:border-[#5A77DF] transition-all" />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop: Table */}
+                    <div className="hidden md:block bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl shadow-sm overflow-hidden mb-6">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest border-b border-[var(--border-color)]">
+                              <th className="px-5 py-3 text-left">#</th>
+                              <th className="px-3 py-3 text-left">Date</th>
+                              <th className="px-3 py-3 text-left">Lesson</th>
+                              <th className="px-3 py-3 text-left">Time</th>
+                              <th className="px-3 py-3 text-center">Duration</th>
+                              <th className="px-3 py-3 text-center">Status</th>
+                              <th className="px-3 py-3 text-center">Absent</th>
+                              <th className="px-3 py-3 text-center">Makeup</th>
+                              <th className="px-3 py-3 text-center">Prof ✓</th>
+                              <th className="px-3 py-3 text-center">Student ✓</th>
+                              {profile?.role === 'teacher' && <th className="px-3 py-3 text-center w-10"></th>}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sorted.map((l, i) => {
+                              const isMakeup = l.is_makeup || l.title?.toLowerCase().includes('reposição');
+                              return (
+                                <tr key={l.id} className={`border-b last:border-b-0 hover:bg-[var(--bg-input)] transition-colors ${l.is_late_cancellation ? 'bg-red-500/10 border-red-500/30' : isMakeup ? 'bg-yellow-500/10 border-yellow-500/30' : !l.is_absent ? 'bg-emerald-500/10 border-emerald-500/30' : 'border-[var(--border-color)]'} ${l.is_absent && !l.is_late_cancellation ? 'opacity-60' : ''}`}>
+                                  <td className="px-5 py-3.5 text-[var(--text-lighter)] font-bold">{i + 1}</td>
+                                  <td className="px-3 py-3.5 text-[var(--text-main)] whitespace-nowrap">{l.class_date ? new Date(l.class_date + 'T00:00').toLocaleDateString('pt-BR') : '—'}</td>
+                                  <td className="px-3 py-3.5 font-semibold text-[var(--text-main)] whitespace-nowrap">
+                                    <div className="flex flex-col gap-1">
+                                      <span>{l.title || formatDate(l.start_time)}</span>
+                                      {(isMakeup || l.is_late_cancellation) && (
+                                        <div className="flex items-center gap-1">
+                                          {isMakeup && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 uppercase tracking-wider">Reposição</span>}
+                                          {l.is_late_cancellation && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20 uppercase tracking-wider">Aviso Tardio</span>}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-3 py-3.5 text-[var(--text-muted)] whitespace-nowrap">{formatTime(l.start_time)} – {formatTime(l.end_time)}</td>
+                                  <td className="px-3 py-3.5 text-center"><span className="font-bold text-[var(--text-main)]">{l.duration_minutes || 0}</span><span className="text-[var(--text-lighter)] text-xs ml-0.5">min</span></td>
+                                  <td className="px-3 py-3.5 text-center">
+                                    {(l.is_late_cancellation || l.late_notice) && isMakeup ? (
+                                      <button onClick={() => update(l.id, { extra_fee_paid: !l.extra_fee_paid })} disabled={updating === `extra_fee_paid_${l.id}`} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${l.extra_fee_paid ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'}`}>
+                                        {updating === `extra_fee_paid_${l.id}` ? <Loader2 size={12} className="animate-spin" /> : (l.extra_fee_paid ? <><CheckCircle2 size={12} /> Taxa Paga</> : 'Taxa Pendente')}
+                                      </button>
+                                    ) : (!lastPayDate || (l.class_date && l.class_date >= lastPayDate && !paidLessonIds.has(l.id))) && !l.is_absent ? (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase tracking-wider">
+                                        Pendente
+                                      </span>
+                                    ) : !l.is_absent ? (
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        <CheckCircle2 size={12} /> Pago
+                                      </span>
+                                    ) : (
+                                      <span className="text-[var(--text-lighter)] text-xs">—</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-3.5 text-center">
+                                    <button onClick={() => toggleAbsent(l.id, l.is_absent)} disabled={updating === `is_absent_${l.id}`}
+                                      className={`w-8 h-8 rounded-lg flex items-center justify-center mx-auto transition-all hover:scale-110 active:scale-95 border ${l.is_absent ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-[var(--bg-input)] text-[var(--text-lighter)] border-[var(--border-color)] hover:text-emerald-400'}`}>
+                                      {updating === `is_absent_${l.id}` ? <Loader2 size={14} className="animate-spin" /> : l.is_absent ? <CalendarX2 size={14} /> : <CalendarCheck size={14} />}
+                                    </button>
+                                  </td>
+                                  <td className="px-3 py-3.5 text-center">
+                                    {l.is_absent ? <input type="date" value={l.makeup_class_date || ''} onChange={e => update(l.id, { makeup_class_date: e.target.value || null })}
+                                      className="bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-main)] text-xs px-2 py-1.5 rounded-lg outline-none focus:border-[#5A77DF] transition-all w-32" />
+                                    : <span className="text-[var(--text-lighter)] text-xs">—</span>}
+                                  </td>
+                                  <td className="px-3 py-3.5 text-center">
+                                    <button onClick={() => toggleCheckin(l.id, 'professor_checkin', l.professor_checkin)} disabled={updating === `professor_checkin_${l.id}`}
+                                      className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-all hover:scale-110 active:scale-95 ${l.professor_checkin ? 'bg-[#5A77DF] text-white shadow-md shadow-[#5A77DF]/30' : 'bg-[var(--bg-input)] text-[var(--text-lighter)] border border-[var(--border-color)]'}`}>
+                                      {updating === `professor_checkin_${l.id}` ? <Loader2 size={14} className="animate-spin" /> : l.professor_checkin ? <CheckCircle2 size={14} /> : <UserCheck size={14} />}
+                                    </button>
+                                  </td>
+                                  <td className="px-3 py-3.5 text-center">
+                                    <button onClick={() => toggleCheckin(l.id, 'student_checkin', l.student_checkin)} disabled={updating === `student_checkin_${l.id}`}
+                                      className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-all hover:scale-110 active:scale-95 ${l.student_checkin ? 'bg-[#5A77DF] text-white shadow-md shadow-[#5A77DF]/30' : 'bg-[var(--bg-input)] text-[var(--text-lighter)] border border-[var(--border-color)]'}`}>
+                                      {updating === `student_checkin_${l.id}` ? <Loader2 size={14} className="animate-spin" /> : l.student_checkin ? <CheckCircle2 size={14} /> : <UserCheck size={14} />}
+                                    </button>
+                                  </td>
+                                  {profile?.role === 'teacher' && (
+                                    <td className="px-3 py-3.5 text-center">
+                                      <button onClick={() => deleteLesson(l.id)} className="w-8 h-8 rounded-lg flex items-center justify-center mx-auto text-[var(--text-lighter)] hover:text-red-500 hover:bg-red-500/10 transition-all">
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
                 )}
-              </div>
+              </>
             )}
           </div>
         )}

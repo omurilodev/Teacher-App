@@ -132,7 +132,7 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
   return (
     <div className="flex-1 overflow-y-auto p-6 md:p-10 lg:p-12 animate-in fade-in duration-500">
       <div className="max-w-5xl mx-auto w-full pt-16 lg:pt-0">
-        <header className="mb-8 flex items-center justify-between">
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 bg-[var(--icon-bg)] text-[var(--icon-color)] rounded-xl flex items-center justify-center shadow-sm">
@@ -142,7 +142,7 @@ export default function StudentCRM({ profile, students, isDarkMode, fetchStudent
             </div>
             <p className="text-[var(--text-muted)] text-sm">Manage attendance, hours, and payments</p>
           </div>
-          <button onClick={() => setIsAddModalOpen(true)} className="bg-[#5A77DF] text-white px-5 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-[#4a63be] transition-all shadow-lg active:scale-95 text-sm">
+          <button onClick={() => setIsAddModalOpen(true)} className="shrink-0 bg-[#5A77DF] text-white px-5 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-[#4a63be] transition-all shadow-lg active:scale-95 text-sm">
             <Plus size={18}/> Novo Aluno
           </button>
         </header>

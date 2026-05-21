@@ -47,7 +47,7 @@ export default function DashboardStats({ students }) {
 
   if (allLoading || monthLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         {[1, 2, 3].map(i => (
           <div key={i} className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl p-5 shadow-sm flex items-center gap-4 h-[88px] animate-pulse">
              <div className="w-12 h-12 rounded-xl bg-[var(--bg-input)]"></div>
@@ -62,7 +62,7 @@ export default function DashboardStats({ students }) {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
       <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl p-5 shadow-sm flex items-center gap-4">
         <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
           <Users size={24} />

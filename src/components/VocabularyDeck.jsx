@@ -259,9 +259,9 @@ export default function VocabularyDeck({ profile, session, selectedStudent, isDa
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
             {/* Search */}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-none">
               <Search
                 size={16}
                 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-lighter)]"
@@ -271,7 +271,7 @@ export default function VocabularyDeck({ profile, session, selectedStudent, isDa
                 placeholder="Search cards..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-main)] text-sm px-10 py-3 rounded-2xl outline-none focus:border-[#5A77DF] transition-all shadow-sm placeholder:text-[var(--text-lighter)] w-48 md:w-56"
+                className="w-full sm:w-48 md:w-56 bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-main)] text-sm px-10 py-3 rounded-2xl outline-none focus:border-[#5A77DF] transition-all shadow-sm placeholder:text-[var(--text-lighter)]"
               />
             </div>
 
@@ -279,7 +279,7 @@ export default function VocabularyDeck({ profile, session, selectedStudent, isDa
             {isStudent && (
               <button
                 onClick={() => setShowAddForm(true)}
-                className="flex items-center gap-2 bg-[#5A77DF] text-white font-bold text-sm px-5 py-3 rounded-2xl hover:bg-[#4a63be] transition-all shadow-lg active:scale-95"
+                className="shrink-0 flex items-center gap-2 bg-[#5A77DF] text-white font-bold text-sm px-5 py-3 rounded-2xl hover:bg-[#4a63be] transition-all shadow-lg active:scale-95"
               >
                 <Plus size={16} />
                 <span className="hidden sm:inline">Add Word</span>
