@@ -575,6 +575,9 @@ export default function StudentDetail({ student, profile, onBack }) {
                                 <p className="font-bold text-sm text-[var(--text-main)] truncate">{l.title || formatDate(l.start_time)}</p>
                                 {(isMakeup || l.is_late_cancellation) && (
                                   <div className="flex flex-wrap gap-1 mt-1">
+                                    {l.is_absent && l.is_late_cancellation && (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wider">Falta</span>
+                                    )}
                                     {isMakeup && (l.end_time
                                       ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase tracking-wider">✅ Reposição Feita</span>
                                       : <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 uppercase tracking-wider">Reposição</span>
@@ -682,6 +685,9 @@ export default function StudentDetail({ student, profile, onBack }) {
                                       <span>{l.title || formatDate(l.start_time)}</span>
                                       {(isMakeup || l.is_late_cancellation) && (
                                         <div className="flex items-center gap-1">
+                                          {l.is_absent && l.is_late_cancellation && (
+                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wider">Falta</span>
+                                          )}
                                           {isMakeup && (l.end_time
                                             ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase tracking-wider">✅ Reposição Feita</span>
                                             : <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 uppercase tracking-wider">Reposição</span>
